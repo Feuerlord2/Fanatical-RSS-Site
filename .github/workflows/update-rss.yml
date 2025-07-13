@@ -35,32 +35,36 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+        continue-on-error: true
             
       - name: Download dependencies
-        run: go mod download
+        run: |
+          go mod download
+          go mod tidy
         
       - name: Build application
-        run: go build -o gofanatical ./cmd/gofanatical.go
+        run: |
+          echo "Building gofanatical..."
+          go build -o gofanatical ./cmd/gofanatical.go
+          echo "Build completed successfully"
         
       - name: Generate RSS feeds
         run: |
           echo "Generating RSS feeds..."
           ./gofanatical
           echo "RSS generation completed"
-          
-      - name: List generated files
-        run: |
-          echo "Generated files in docs directory:"
-          ls -la docs/*.rss 2>/dev/null || echo "No RSS files found in docs/"
-          
-      - name: Verify docs directory
+        
+      - name: Verify docs directory and files
         run: |
           echo "Contents of docs directory:"
-          ls -la docs/
+          ls -la docs/ || echo "docs directory not found"
           if [ ! -f docs/index.html ]; then
             echo "Error: docs/index.html not found!"
+            echo "Please ensure docs/index.html exists in your repository"
             exit 1
           fi
+          echo "RSS files:"
+          ls -la docs/*.rss 2>/dev/null || echo "No RSS files found in docs/"
           
       - name: Configure Git
         run: |
@@ -70,6 +74,7 @@ jobs:
       - name: Check for changes
         id: verify-changed-files
         run: |
+          git add docs/
           if [ -n "$(git status --porcelain)" ]; then
             echo "changed=true" >> $GITHUB_OUTPUT
             echo "Changes detected:"
@@ -82,7 +87,6 @@ jobs:
       - name: Commit and push changes
         if: steps.verify-changed-files.outputs.changed == 'true'
         run: |
-          git add docs/*.rss
           git commit -m "🤖 Auto-update RSS feeds - $(date '+%Y-%m-%d %H:%M:%S UTC')"
           git push
           
