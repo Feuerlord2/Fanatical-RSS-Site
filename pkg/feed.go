@@ -2,13 +2,18 @@ package gofanatical
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/gorilla/feeds"
 	log "github.com/sirupsen/logrus"
 )
@@ -61,9 +66,60 @@ func createFeed(bundles []FanaticalBundle, category string) (feeds.Feed, error) 
 func updateCategory(wg *sync.WaitGroup, category string) {
 	defer wg.Done()
 
-	log.WithField("category", category).Info("Creating current bundles")
-	bundles := createCurrentBundles(category)
-
+	// Try to fetch bundles from Fanatical website
+	log.WithField("category", category).Info("Fetching bundles from Fanatical website")
+	
+	url := "https://www.fanatical.com/en/bundles"
+	
+	// Create HTTP client with headers to avoid blocking
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.WithField("error", err.Error()).Error("Failed to create request")
+		return
+	}
+	
+	// Add headers to appear like a real browser
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Connection", "keep-alive")
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"category": category,
+			"error":    err.Error(),
+		}).Error("Failed to fetch bundles page")
+		return
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		log.WithFields(log.Fields{
+			"category": category,
+			"status":   resp.StatusCode,
+		}).Error("HTTP error when fetching bundles")
+		return
+	}
+	
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		log.WithField("category", category).Error("Failed to parse HTML")
+		return
+	}
+	
+	// Try to extract bundles from the page
+	bundles := extractBundlesFromFanatical(doc, category)
+	
+	if len(bundles) == 0 {
+		log.WithField("category", category).Warn("No bundles found on website")
+		return
+	}
+	
 	feed, err := createFeed(bundles, category)
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -81,155 +137,223 @@ func updateCategory(wg *sync.WaitGroup, category string) {
 	}
 }
 
-func createCurrentBundles(category string) []FanaticalBundle {
+func extractBundlesFromFanatical(doc *goquery.Document, category string) []FanaticalBundle {
 	var bundles []FanaticalBundle
 	
-	switch category {
-	case "books":
-		bundles = []FanaticalBundle{
-			{
-				ID:          "books-javascript-4th",
-				Title:       "JavaScript Bundle 4th Edition",
-				Description: "6 full JavaScript books with 5 being all new to Fanatical. Learn modern JS development.",
-				URL:         "/en/bundle/javascript-bundle-4-th-edition",
-				Category:    category,
-				StartDate:   time.Now().Add(-7 * 24 * time.Hour),
-				EndDate:     time.Now().Add(21 * 24 * time.Hour),
-				IsActive:    true,
-				Price: Price{
-					Currency: "USD",
-					Amount:   12.99,
-					Original: 89.99,
-					Discount: 86,
-				},
-			},
-			{
-				ID:          "books-unity-programming",
-				Title:       "Unity Programming Bundle",
-				Description: "Updated for 2024 with AI usage in Unity Game Engine. Essential for game developers.",
-				URL:         "/en/bundle/unity-programming-bundle",
-				Category:    category,
-				StartDate:   time.Now().Add(-3 * 24 * time.Hour),
-				EndDate:     time.Now().Add(25 * 24 * time.Hour),
-				IsActive:    true,
-				Price: Price{
-					Currency: "USD",
-					Amount:   15.99,
-					Original: 119.99,
-					Discount: 87,
-				},
-			},
+	log.WithField("category", category).Info("Extracting bundles from Fanatical HTML")
+	
+	// Look for script tags that might contain bundle data (similar to Humble Bundle approach)
+	doc.Find("script").Each(func(i int, s *goquery.Selection) {
+		scriptContent := s.Text()
+		
+		// Look for JSON-like data that contains bundle information
+		if strings.Contains(scriptContent, "bundle") && strings.Contains(scriptContent, "title") {
+			log.WithField("category", category).Debug("Found potential bundle data in script tag")
+			
+			// Try to extract JSON objects from script
+			bundles = append(bundles, extractBundlesFromScript(scriptContent, category)...)
 		}
-	case "games":
-		bundles = []FanaticalBundle{
-			{
-				ID:          "games-nspcc-charity-2025",
-				Title:       "NSPCC Charity Bundle 2025",
-				Description: "Supporting NSPCC's mission to end child abuse. Great games for a great cause.",
-				URL:         "/en/bundle/nspcc-charity-bundle-2025",
-				Category:    category,
-				StartDate:   time.Now().Add(-5 * 24 * time.Hour),
-				EndDate:     time.Now().Add(16 * 24 * time.Hour),
-				IsActive:    true,
-				Price: Price{
-					Currency: "USD",
-					Amount:   9.99,
-					Original: 79.99,
-					Discount: 88,
-				},
-			},
-			{
-				ID:          "games-into-games-2025",
-				Title:       "Into Games Bundle 2025",
-				Description: "Fantastic indie and popular games supporting the Into Games charity initiative.",
-				URL:         "/en/bundle/into-games-bundle-2025",
-				Category:    category,
-				StartDate:   time.Now().Add(-2 * 24 * time.Hour),
-				EndDate:     time.Now().Add(19 * 24 * time.Hour),
-				IsActive:    true,
-				Price: Price{
-					Currency: "USD",
-					Amount:   14.99,
-					Original: 129.99,
-					Discount: 88,
-				},
-			},
-			{
-				ID:          "games-mystery-box",
-				Title:       "Mystery Box Bundle",
-				Description: "Packed with surprises, prizes, and premium games! You never know what you'll get.",
-				URL:         "/en/bundle/mystery-box-bundle",
-				Category:    category,
-				StartDate:   time.Now().Add(-1 * 24 * time.Hour),
-				EndDate:     time.Now().Add(28 * 24 * time.Hour),
-				IsActive:    true,
-				Price: Price{
-					Currency: "USD",
-					Amount:   7.99,
-					Original: 59.99,
-					Discount: 87,
-				},
-			},
-			{
-				ID:          "games-summer-mystery-2025",
-				Title:       "Summer Mystery Bundle 2025",
-				Description: "Beat the heat with exciting mystery games perfect for the summer season!",
-				URL:         "/en/bundle/summer-mystery-bundle",
-				Category:    category,
-				StartDate:   time.Now().Add(-4 * 24 * time.Hour),
-				EndDate:     time.Now().Add(17 * 24 * time.Hour),
-				IsActive:    true,
-				Price: Price{
-					Currency: "USD",
-					Amount:   11.99,
-					Original: 89.99,
-					Discount: 87,
-				},
-			},
-		}
-	case "software":
-		bundles = []FanaticalBundle{
-			{
-				ID:          "software-pro-studio-graphics-2025",
-				Title:       "Pro Studio Graphics Bundle 2025 Edition",
-				Description: "25 graphic enhancements: Photoshop actions, Lightroom presets, brushes, LUTs, overlays.",
-				URL:         "/en/bundle/pro-studio-graphics-bundle-2025-edition",
-				Category:    category,
-				StartDate:   time.Now().Add(-6 * 24 * time.Hour),
-				EndDate:     time.Now().Add(15 * 24 * time.Hour),
-				IsActive:    true,
-				Price: Price{
-					Currency: "USD",
-					Amount:   19.99,
-					Original: 299.99,
-					Discount: 93,
-				},
-			},
-			{
-				ID:          "software-unity-tools",
-				Title:       "Unity Development Tools Bundle",
-				Description: "Professional Unity development tools and resources for game developers and engineers.",
-				URL:         "/en/bundle/unity-programming-bundle",
-				Category:    category,
-				StartDate:   time.Now().Add(-3 * 24 * time.Hour),
-				EndDate:     time.Now().Add(22 * 24 * time.Hour),
-				IsActive:    true,
-				Price: Price{
-					Currency: "USD",
-					Amount:   24.99,
-					Original: 199.99,
-					Discount: 88,
-				},
-			},
+	})
+	
+	// If no bundles found in scripts, try HTML parsing
+	if len(bundles) == 0 {
+		log.WithField("category", category).Info("No bundles found in scripts, trying HTML parsing")
+		bundles = extractBundlesFromHTML(doc, category)
+	}
+	
+	// Filter bundles by category
+	var filteredBundles []FanaticalBundle
+	for _, bundle := range bundles {
+		if shouldIncludeBundle(bundle, category) {
+			filteredBundles = append(filteredBundles, bundle)
 		}
 	}
 	
 	log.WithFields(log.Fields{
 		"category": category,
-		"count":    len(bundles),
-	}).Info("Created current bundles")
+		"total":    len(bundles),
+		"filtered": len(filteredBundles),
+	}).Info("Bundle extraction completed")
+	
+	return filteredBundles
+}
+
+func extractBundlesFromScript(scriptContent, category string) []FanaticalBundle {
+	var bundles []FanaticalBundle
+	
+	// Try to find JSON objects in the script
+	re := regexp.MustCompile(`\{[^{}]*"[^"]*bundle[^"]*"[^{}]*\}`)
+	matches := re.FindAllString(scriptContent, -1)
+	
+	for _, match := range matches {
+		// Try to parse as JSON
+		var data map[string]interface{}
+		if err := json.Unmarshal([]byte(match), &data); err == nil {
+			if bundle := parseJSONBundle(data, category); bundle != nil {
+				bundles = append(bundles, *bundle)
+			}
+		}
+	}
 	
 	return bundles
+}
+
+func extractBundlesFromHTML(doc *goquery.Document, category string) []FanaticalBundle {
+	var bundles []FanaticalBundle
+	
+	// Try different selectors that Fanatical might use for bundle cards
+	selectors := []string{
+		"[data-qa*='bundle']",
+		"[data-testid*='bundle']", 
+		"[data-testid*='product']",
+		".bundle-card",
+		".product-card",
+		".card",
+		"article",
+		"[class*='bundle']",
+		"[class*='product']",
+		"[class*='card']",
+	}
+	
+	for _, selector := range selectors {
+		doc.Find(selector).Each(func(i int, s *goquery.Selection) {
+			if bundle := parseHTMLBundle(s, category); bundle != nil {
+				bundles = append(bundles, *bundle)
+			}
+		})
+		
+		// If we found bundles with this selector, use them
+		if len(bundles) > 0 {
+			break
+		}
+	}
+	
+	return bundles
+}
+
+func parseJSONBundle(data map[string]interface{}, category string) *FanaticalBundle {
+	// Extract bundle information from JSON data
+	title, hasTitle := data["title"].(string)
+	if !hasTitle || title == "" {
+		return nil
+	}
+	
+	bundle := &FanaticalBundle{
+		ID:        fmt.Sprintf("%s-%d", category, time.Now().Unix()),
+		Title:     title,
+		Category:  category,
+		StartDate: time.Now().Add(-24 * time.Hour),
+		EndDate:   time.Now().Add(30 * 24 * time.Hour),
+		IsActive:  true,
+		Price: Price{
+			Currency: "USD",
+			Amount:   9.99,
+			Original: 49.99,
+			Discount: 80,
+		},
+	}
+	
+	// Try to extract additional fields
+	if desc, hasDesc := data["description"].(string); hasDesc {
+		bundle.Description = desc
+	}
+	
+	if url, hasURL := data["url"].(string); hasURL {
+		bundle.URL = url
+	}
+	
+	if price, hasPrice := data["price"].(float64); hasPrice {
+		bundle.Price.Amount = price
+	}
+	
+	return bundle
+}
+
+func parseHTMLBundle(s *goquery.Selection, category string) *FanaticalBundle {
+	// Extract title from various possible elements
+	title := ""
+	titleSelectors := []string{"h1", "h2", "h3", "h4", ".title", ".name", "[data-qa*='title']"}
+	
+	for _, sel := range titleSelectors {
+		if title == "" {
+			title = strings.TrimSpace(s.Find(sel).First().Text())
+		}
+	}
+	
+	// Skip if no meaningful title found
+	if title == "" || len(title) < 3 {
+		return nil
+	}
+	
+	// Get URL
+	url, _ := s.Find("a").First().Attr("href")
+	if url != "" && !strings.HasPrefix(url, "http") {
+		if strings.HasPrefix(url, "/") {
+			url = "https://www.fanatical.com" + url
+		}
+	}
+	
+	// Get description
+	description := strings.TrimSpace(s.Find(".description, .summary, p").First().Text())
+	
+	// Get price
+	priceText := strings.TrimSpace(s.Find("[class*='price'], .cost, .amount").First().Text())
+	price := parsePrice(priceText)
+	
+	bundle := &FanaticalBundle{
+		ID:          fmt.Sprintf("%s-%d", category, time.Now().UnixNano()),
+		Title:       title,
+		Description: description,
+		URL:         url,
+		Category:    category,
+		StartDate:   time.Now().Add(-24 * time.Hour),
+		EndDate:     time.Now().Add(30 * 24 * time.Hour),
+		IsActive:    true,
+		Price: Price{
+			Currency: "USD",
+			Amount:   price,
+			Original: price * 2.0,
+			Discount: 50,
+		},
+	}
+	
+	return bundle
+}
+
+func parsePrice(priceText string) float64 {
+	// Extract price from text like "$12.99", "€15.00", etc.
+	re := regexp.MustCompile(`[\d.]+`)
+	matches := re.FindAllString(priceText, -1)
+	if len(matches) > 0 {
+		if price, err := strconv.ParseFloat(matches[0], 64); err == nil {
+			return price
+		}
+	}
+	return 9.99 // Default price
+}
+
+func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
+	title := strings.ToLower(bundle.Title)
+	description := strings.ToLower(bundle.Description)
+	
+	switch category {
+	case "books":
+		return strings.Contains(title, "book") || 
+		       strings.Contains(title, "ebook") ||
+		       strings.Contains(description, "book")
+	case "games":
+		return !strings.Contains(title, "book") && 
+		       !strings.Contains(title, "software") &&
+		       (strings.Contains(title, "game") || 
+		        strings.Contains(title, "steam") ||
+		        strings.Contains(description, "game"))
+	case "software":
+		return strings.Contains(title, "software") ||
+		       strings.Contains(title, "app") ||
+		       strings.Contains(description, "software")
+	default:
+		return true
+	}
 }
 
 func writeFeedToFile(feed feeds.Feed, category string) error {
