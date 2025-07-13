@@ -50,21 +50,17 @@ jobs:
           
       - name: List generated files
         run: |
-          echo "Generated files:"
-          ls -la *.rss 2>/dev/null || echo "No RSS files found"
+          echo "Generated files in docs directory:"
+          ls -la docs/*.rss 2>/dev/null || echo "No RSS files found in docs/"
           
-      - name: Move RSS files to docs directory
+      - name: Verify docs directory
         run: |
-          echo "Moving RSS files to docs directory..."
-          mkdir -p docs
-          # Copy HTML file if it doesn't exist
-          if [ ! -f docs/index.html ]; then
-            echo "Warning: docs/index.html not found"
-          fi
-          # Move RSS files
-          mv *.rss docs/ 2>/dev/null || echo "No RSS files to move"
-          echo "Files in docs directory:"
+          echo "Contents of docs directory:"
           ls -la docs/
+          if [ ! -f docs/index.html ]; then
+            echo "Error: docs/index.html not found!"
+            exit 1
+          fi
           
       - name: Configure Git
         run: |
