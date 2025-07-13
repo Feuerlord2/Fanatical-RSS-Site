@@ -1,0 +1,111 @@
+name: Update RSS Feed
+
+on:
+  schedule:
+    # Läuft jeden Tag um 17:00 UTC (18:00 CET / 19:00 CEST)
+    - cron: '0 17 * * *'
+  workflow_dispatch: # Manueller Trigger für Tests
+  push:
+    branches: [ main ]
+
+jobs:
+  update-rss:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Install dependencies
+      run: go mod download
+      
+    - name: Generate RSS Feed
+      run: |
+        go run cmd/generator/main.go > docs/rss.xml
+        
+    - name: Validate RSS Feed
+      run: |
+        # Prüfe ob RSS-Datei erstellt wurde und nicht leer ist
+        if [ ! -f docs/rss.xml ]; then
+          echo "RSS file not created!"
+          exit 1
+        fi
+        
+        if [ ! -s docs/rss.xml ]; then
+          echo "RSS file is empty!"
+          exit 1
+        fi
+        
+        # Prüfe ob RSS-Datei gültiges XML enthält
+        if ! xmllint --noout docs/rss.xml; then
+          echo "RSS file is not valid XML!"
+          exit 1
+        fi
+        
+        echo "RSS feed validation successful!"
+        
+    - name: Update timestamp
+      run: |
+        echo "Last updated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" > docs/last_updated.txt
+        
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Prüfe ob es Änderungen gibt
+        if git diff --quiet docs/rss.xml; then
+          echo "No changes to RSS feed"
+        else
+          git add docs/rss.xml docs/last_updated.txt
+          git commit -m "Update RSS feed - $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
+          echo "RSS feed updated and pushed"
+        fi
+        
+    - name: Create deployment artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: rss-feed
+        path: |
+          docs/rss.xml
+          docs/last_updated.txt
+        retention-days: 30
+        
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      if: github.ref == 'refs/heads/main'
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./docs
+        destination_dir: ./
+        
+  notify:
+    needs: update-rss
+    runs-on: ubuntu-latest
+    if: failure()
+    
+    steps:
+    - name: Send notification on failure
+      run: |
+        echo "RSS feed update failed!"
+        # Hier könntest du weitere Benachrichtigungen hinzufügen
+        # z.B. Slack, Discord, E-Mail, etc.
