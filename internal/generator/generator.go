@@ -69,18 +69,62 @@ type Generator struct {
 	feedCopyright   string
 	feedCategory    string
 	feedTTL         int
+	bundleType      string
 }
 
-// NewGenerator creates a new RSS generator
-func NewGenerator() *Generator {
+// NewGenerator creates a new RSS generator for a specific bundle type
+func NewGenerator(bundleType string) *Generator {
 	return &Generator{
-		feedTitle:       "Fanatical Game Bundles",
-		feedLink:        "https://www.fanatical.com/en/bundle/games",
-		feedDescription: "Current game bundles from Fanatical - Automatically generated",
+		feedTitle:       getFeedTitle(bundleType),
+		feedLink:        fmt.Sprintf("https://www.fanatical.com/en/bundle/%s", bundleType),
+		feedDescription: getFeedDescription(bundleType),
 		feedLanguage:    "en-US",
 		feedCopyright:   "© 2025 Fanatical Bundle RSS Generator",
-		feedCategory:    "Gaming",
+		feedCategory:    getFeedCategory(bundleType),
 		feedTTL:         60, // 60 minutes
+		bundleType:      bundleType,
+	}
+}
+
+// getFeedTitle returns the appropriate feed title for the bundle type
+func getFeedTitle(bundleType string) string {
+	switch bundleType {
+	case "games":
+		return "Fanatical Game Bundles"
+	case "books":
+		return "Fanatical Book Bundles"
+	case "software":
+		return "Fanatical Software Bundles"
+	default:
+		return "Fanatical Bundles"
+	}
+}
+
+// getFeedDescription returns the appropriate feed description for the bundle type
+func getFeedDescription(bundleType string) string {
+	switch bundleType {
+	case "games":
+		return "Current game bundles from Fanatical - Automatically generated"
+	case "books":
+		return "Current book bundles from Fanatical - Automatically generated"
+	case "software":
+		return "Current software bundles from Fanatical - Automatically generated"
+	default:
+		return "Current bundles from Fanatical - Automatically generated"
+	}
+}
+
+// getFeedCategory returns the appropriate feed category for the bundle type
+func getFeedCategory(bundleType string) string {
+	switch bundleType {
+	case "games":
+		return "Gaming"
+	case "books":
+		return "Books & Literature"
+	case "software":
+		return "Software & Technology"
+	default:
+		return "Technology"
 	}
 }
 
@@ -159,13 +203,6 @@ func (g *Generator) GenerateRSS(bundles []models.Bundle) (string, error) {
 
 // createItemDescription creates a detailed description for an RSS item
 func (g *Generator) createItemDescription(bundle models.Bundle) string {
-	var parts []string
-	
-	// Base description
-	if bundle.Description != "" {
-		parts = append(parts, bundle.Description)
-	}
-	
 	// Create HTML-formatted description
 	html := fmt.Sprintf(`<div style="font-family: Arial, sans-serif;">`)
 	
@@ -180,14 +217,16 @@ func (g *Generator) createItemDescription(bundle models.Bundle) string {
 		html += fmt.Sprintf(`<p><strong>Price:</strong> %s</p>`, bundle.Price)
 	}
 	
-	if bundle.GameCount != "" {
-		html += fmt.Sprintf(`<p><strong>Number of Games:</strong> %s</p>`, bundle.GameCount)
+	if bundle.ItemCount != "" {
+		itemType := bundle.GetItemTypeName()
+		html += fmt.Sprintf(`<p><strong>Number of %s:</strong> %s</p>`, itemType, bundle.ItemCount)
 	}
 	
 	if bundle.Tier != "" {
 		html += fmt.Sprintf(`<p><strong>Tier:</strong> %s</p>`, bundle.Tier)
 	}
 	
+	html += fmt.Sprintf(`<p><strong>Type:</strong> %s</p>`, bundle.GetBundleTypeName())
 	html += fmt.Sprintf(`<p><a href="%s" target="_blank">View Bundle →</a></p>`, bundle.Link)
 	html += `</div>`
 	
@@ -211,7 +250,21 @@ func (g *Generator) cleanTitle(title string) string {
 func (g *Generator) getCategoryFromBundle(bundle models.Bundle) string {
 	title := strings.ToLower(bundle.Title)
 	
-	// Determine category based on title
+	// Base category on bundle type
+	switch bundle.BundleType {
+	case "games":
+		return g.getGameCategory(title)
+	case "books":
+		return g.getBookCategory(title)
+	case "software":
+		return g.getSoftwareCategory(title)
+	default:
+		return g.feedCategory
+	}
+}
+
+// getGameCategory determines game-specific categories
+func (g *Generator) getGameCategory(title string) string {
 	categories := map[string]string{
 		"indie":      "Indie Games",
 		"strategy":   "Strategy",
@@ -237,6 +290,62 @@ func (g *Generator) getCategoryFromBundle(bundle models.Bundle) string {
 	return "Gaming"
 }
 
+// getBookCategory determines book-specific categories
+func (g *Generator) getBookCategory(title string) string {
+	categories := map[string]string{
+		"fiction":     "Fiction",
+		"sci-fi":      "Science Fiction",
+		"fantasy":     "Fantasy",
+		"mystery":     "Mystery",
+		"romance":     "Romance",
+		"thriller":    "Thriller",
+		"biography":   "Biography",
+		"history":     "History",
+		"programming": "Programming",
+		"tech":        "Technology",
+		"business":    "Business",
+		"self-help":   "Self Help",
+		"cooking":     "Cooking",
+		"art":         "Art",
+	}
+	
+	for keyword, category := range categories {
+		if strings.Contains(title, keyword) {
+			return category
+		}
+	}
+	
+	return "Books & Literature"
+}
+
+// getSoftwareCategory determines software-specific categories
+func (g *Generator) getSoftwareCategory(title string) string {
+	categories := map[string]string{
+		"creative":     "Creative Software",
+		"design":       "Design",
+		"photo":        "Photo Editing",
+		"video":        "Video Editing",
+		"audio":        "Audio Production",
+		"productivity": "Productivity",
+		"office":       "Office Software",
+		"security":     "Security",
+		"utility":      "Utilities",
+		"development":  "Development Tools",
+		"programming":  "Programming",
+		"game":         "Game Development",
+		"3d":           "3D Software",
+		"animation":    "Animation",
+	}
+	
+	for keyword, category := range categories {
+		if strings.Contains(title, keyword) {
+			return category
+		}
+	}
+	
+	return "Software & Technology"
+}
+
 // SetFeedMetadata allows customizing feed metadata
 func (g *Generator) SetFeedMetadata(title, link, description, language string) {
 	if title != "" {
@@ -246,4 +355,48 @@ func (g *Generator) SetFeedMetadata(title, link, description, language string) {
 		g.feedLink = link
 	}
 	if description != "" {
-		g.feedDescription =
+		g.feedDescription = description
+	}
+	if language != "" {
+		g.feedLanguage = language
+	}
+}
+
+// SetTTL sets the Time-To-Live for the feed
+func (g *Generator) SetTTL(minutes int) {
+	g.feedTTL = minutes
+}
+
+// ValidateRSS checks if the generated RSS feed is valid
+func (g *Generator) ValidateRSS(rssContent string) error {
+	// Basic validation
+	if !strings.Contains(rssContent, "<?xml") {
+		return fmt.Errorf("XML header missing")
+	}
+	
+	if !strings.Contains(rssContent, "<rss") {
+		return fmt.Errorf("RSS root element missing")
+	}
+	
+	if !strings.Contains(rssContent, "<channel>") {
+		return fmt.Errorf("channel element missing")
+	}
+	
+	// Test XML parsing
+	var rss RSS
+	err := xml.Unmarshal([]byte(rssContent), &rss)
+	if err != nil {
+		return fmt.Errorf("XML parsing failed: %w", err)
+	}
+	
+	// Check minimum requirements
+	if rss.Channel.Title == "" {
+		return fmt.Errorf("channel title missing")
+	}
+	
+	if rss.Channel.Link == "" {
+		return fmt.Errorf("channel link missing")
+	}
+	
+	return nil
+}
