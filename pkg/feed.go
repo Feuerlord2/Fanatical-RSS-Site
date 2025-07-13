@@ -247,3 +247,4 @@ func writeFeedToFile(feed feeds.Feed, category string) error {
 		"file":     filename,
 	}).Info("RSS feed written successfully")
 	return nil
+}
