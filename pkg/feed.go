@@ -322,6 +322,10 @@ func extractBundlesFromHTML(doc *goquery.Document, category string) []FanaticalB
 	log.WithFields(log.Fields{
 		"category": category,
 		"count":    len(bundles),
+	}).Info("Created sample bundles")
+	
+	return bundles
+}":    len(bundles),
 	}).Info("HTML parsing completed")
 	
 	return bundles
@@ -407,6 +411,50 @@ func createSampleBundles(category string) []FanaticalBundle {
 	log.WithFields(log.Fields{
 		"category": category,
 		"count":    len(bundles),
+	}).Info("Created sample bundles")
+	
+	return bundles
+}
+
+func writeFeedToFile(feed feeds.Feed, category string) error {
+	// Ensure docs directory exists
+	if err := os.MkdirAll("docs", 0755); err != nil {
+		return fmt.Errorf("failed to create docs directory: %w", err)
+	}
+
+	// Write RSS file to docs directory
+	filename := fmt.Sprintf("docs/%s.rss", category)
+	f, err := os.OpenFile(
+		filename,
+		os.O_CREATE|os.O_TRUNC|os.O_WRONLY,
+		0644,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create RSS file %s: %w", filename, err)
+	}
+	defer f.Close()
+
+	w := bufio.NewWriter(f)
+	rss, err := feed.ToRss()
+	if err != nil {
+		return fmt.Errorf("failed to generate RSS content: %w", err)
+	}
+
+	if _, err := w.WriteString(rss); err != nil {
+		return fmt.Errorf("failed to write RSS content: %w", err)
+	}
+
+	// Manual flush to ensure RSS feeds are created
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("failed to flush RSS file: %w", err)
+	}
+
+	log.WithFields(log.Fields{
+		"category": category,
+		"file":     filename,
+	}).Info("RSS feed written successfully")
+	return nil
+}":    len(bundles),
 	}).Info("Created sample bundles")
 	
 	return bundles
