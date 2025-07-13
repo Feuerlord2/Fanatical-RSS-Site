@@ -21,7 +21,7 @@ run: build ## Build and run the RSS generator
 clean: ## Clean build artifacts and RSS files
 	@echo "Cleaning up..."
 	@rm -f gofanatical
-	@rm -f *.rss
+	@rm -f docs/*.rss
 	@echo "✅ Cleanup completed"
 
 test: ## Run tests
@@ -35,10 +35,7 @@ deps: ## Download and verify dependencies
 	@go mod verify
 	@echo "✅ Dependencies updated"
 
-update-feeds: run ## Generate RSS feeds and move to docs folder
-	@echo "Moving RSS files to docs folder..."
-	@mkdir -p docs
-	@mv *.rss docs/ 2>/dev/null || echo "No RSS files to move"
+update-feeds: run ## Generate RSS feeds (now writes directly to docs folder)
 	@echo "✅ RSS feeds updated in docs folder"
 
 install: deps build ## Install dependencies and build
