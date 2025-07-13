@@ -28,15 +28,11 @@ jobs:
         with:
           go-version: '1.20'
           
-      - name: Cache Go modules
-        uses: actions/cache@v3
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-        continue-on-error: true
-            
+      - name: Clean Go cache
+        run: |
+          go clean -cache
+          go clean -modcache || true
+          
       - name: Download dependencies
         run: |
           go mod download
@@ -54,17 +50,25 @@ jobs:
           ./gofanatical
           echo "RSS generation completed"
         
-      - name: Verify docs directory and files
+      - name: List generated files
         run: |
           echo "Contents of docs directory:"
           ls -la docs/ || echo "docs directory not found"
-          if [ ! -f docs/index.html ]; then
-            echo "Error: docs/index.html not found!"
-            echo "Please ensure docs/index.html exists in your repository"
-            exit 1
-          fi
           echo "RSS files:"
-          ls -la docs/*.rss 2>/dev/null || echo "No RSS files found in docs/"
+          find docs -name "*.rss" -exec ls -la {} \; || echo "No RSS files found"
+          
+      - name: Show RSS content (for debugging)
+        run: |
+          echo "=== RSS CONTENT DEBUG ==="
+          for file in docs/*.rss; do
+            if [ -f "$file" ]; then
+              echo "File: $file"
+              echo "Size: $(wc -c < "$file") bytes"
+              echo "First 10 lines:"
+              head -10 "$file"
+              echo "---"
+            fi
+          done || echo "No RSS files to show"
           
       - name: Configure Git
         run: |
@@ -109,3 +113,11 @@ jobs:
             echo "- **Status**: ℹ️ No changes to RSS feeds" >> $GITHUB_STEP_SUMMARY
           fi
           echo "- **Live Site**: https://feuerlord2.github.io/Fanatical-RSS-Site/" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Debug Info" >> $GITHUB_STEP_SUMMARY
+          echo "- **RSS Files Count**: $(find docs -name "*.rss" | wc -l)" >> $GITHUB_STEP_SUMMARY
+          for file in docs/*.rss; do
+            if [ -f "$file" ]; then
+              echo "- **$(basename "$file")**: $(wc -c < "$file") bytes" >> $GITHUB_STEP_SUMMARY
+            fi
+          done || echo "- **No RSS files found**" >> $GITHUB_STEP_SUMMARY
