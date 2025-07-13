@@ -4,28 +4,28 @@
     <link>https://feuerlord2.github.io/Fanatical-RSS-Site/</link>
     <description>Latest Fanatical books bundles with amazing deals and discounts!</description>
     <managingEditor>DanielWinterEmsdetten+rss@gmail.com (Daniel Winter)</managingEditor>
-    <pubDate>Sun, 13 Jul 2025 19:24:40 +0000</pubDate>
+    <pubDate>Sun, 13 Jul 2025 20:28:16 +0000</pubDate>
     <item>
-      <title>Sample Books Bundle 1</title>
-      <link>https://www.fanatical.com/en/bundle/sample-bundle-1</link>
-      <description>A great collection of books items at an amazing price!</description>
-      <content:encoded><![CDATA[A great collection of books items at an amazing price!
+      <title>Unity Programming Bundle</title>
+      <link>https://www.fanatical.com/en/bundle/unity-programming-bundle</link>
+      <description>Updated for 2024 with AI usage in Unity Game Engine. Essential for game developers.</description>
+      <content:encoded><![CDATA[Updated for 2024 with AI usage in Unity Game Engine. Essential for game developers.
 
-Price: USD 9.99 (Original: 49.99)
-Discount: 80%
-Valid until: 2025-07-27 19:24]]></content:encoded>
-      <pubDate>Sun, 13 Jul 2025 19:24:40 +0000</pubDate>
+Price: USD 15.99 (Original: 119.99)
+Discount: 87%
+Valid until: 2025-08-07 20:28]]></content:encoded>
+      <pubDate>Thu, 10 Jul 2025 20:28:16 +0000</pubDate>
     </item>
     <item>
-      <title>Sample Books Bundle 2</title>
-      <link>https://www.fanatical.com/en/bundle/sample-bundle-2</link>
-      <description>Another fantastic books bundle with excellent value!</description>
-      <content:encoded><![CDATA[Another fantastic books bundle with excellent value!
+      <title>JavaScript Bundle 4th Edition</title>
+      <link>https://www.fanatical.com/en/bundle/javascript-bundle-4-th-edition</link>
+      <description>6 full JavaScript books with 5 being all new to Fanatical. Learn modern JS development.</description>
+      <content:encoded><![CDATA[6 full JavaScript books with 5 being all new to Fanatical. Learn modern JS development.
 
-Price: USD 14.99 (Original: 79.99)
-Discount: 75%
-Valid until: 2025-08-03 19:24]]></content:encoded>
-      <pubDate>Sat, 12 Jul 2025 19:24:40 +0000</pubDate>
+Price: USD 12.99 (Original: 89.99)
+Discount: 86%
+Valid until: 2025-08-03 20:28]]></content:encoded>
+      <pubDate>Sun, 06 Jul 2025 20:28:16 +0000</pubDate>
     </item>
   </channel>
 </rss>

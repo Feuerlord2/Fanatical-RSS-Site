@@ -4,28 +4,28 @@
     <link>https://feuerlord2.github.io/Fanatical-RSS-Site/</link>
     <description>Latest Fanatical software bundles with amazing deals and discounts!</description>
     <managingEditor>DanielWinterEmsdetten+rss@gmail.com (Daniel Winter)</managingEditor>
-    <pubDate>Sun, 13 Jul 2025 19:24:40 +0000</pubDate>
+    <pubDate>Sun, 13 Jul 2025 20:28:16 +0000</pubDate>
     <item>
-      <title>Sample Software Bundle 1</title>
-      <link>https://www.fanatical.com/en/bundle/sample-bundle-1</link>
-      <description>A great collection of software items at an amazing price!</description>
-      <content:encoded><![CDATA[A great collection of software items at an amazing price!
+      <title>Unity Development Tools Bundle</title>
+      <link>https://www.fanatical.com/en/bundle/unity-programming-bundle</link>
+      <description>Professional Unity development tools and resources for game developers and engineers.</description>
+      <content:encoded><![CDATA[Professional Unity development tools and resources for game developers and engineers.
 
-Price: USD 9.99 (Original: 49.99)
-Discount: 80%
-Valid until: 2025-07-27 19:24]]></content:encoded>
-      <pubDate>Sun, 13 Jul 2025 19:24:40 +0000</pubDate>
+Price: USD 24.99 (Original: 199.99)
+Discount: 88%
+Valid until: 2025-08-04 20:28]]></content:encoded>
+      <pubDate>Thu, 10 Jul 2025 20:28:16 +0000</pubDate>
     </item>
     <item>
-      <title>Sample Software Bundle 2</title>
-      <link>https://www.fanatical.com/en/bundle/sample-bundle-2</link>
-      <description>Another fantastic software bundle with excellent value!</description>
-      <content:encoded><![CDATA[Another fantastic software bundle with excellent value!
+      <title>Pro Studio Graphics Bundle 2025 Edition</title>
+      <link>https://www.fanatical.com/en/bundle/pro-studio-graphics-bundle-2025-edition</link>
+      <description>25 graphic enhancements: Photoshop actions, Lightroom presets, brushes, LUTs, overlays.</description>
+      <content:encoded><![CDATA[25 graphic enhancements: Photoshop actions, Lightroom presets, brushes, LUTs, overlays.
 
-Price: USD 14.99 (Original: 79.99)
-Discount: 75%
-Valid until: 2025-08-03 19:24]]></content:encoded>
-      <pubDate>Sat, 12 Jul 2025 19:24:40 +0000</pubDate>
+Price: USD 19.99 (Original: 299.99)
+Discount: 93%
+Valid until: 2025-07-28 20:28]]></content:encoded>
+      <pubDate>Mon, 07 Jul 2025 20:28:16 +0000</pubDate>
     </item>
   </channel>
 </rss>
