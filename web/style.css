@@ -53,6 +53,71 @@ body {
     font-weight: 300;
 }
 
+/* Feed Grid */
+.feed-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 30px;
+    margin-bottom: 40px;
+}
+
+.feed-card {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.feed-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+.feed-card.games::before {
+    background: linear-gradient(90deg, #4CAF50, #2E7D32);
+}
+
+.feed-card.books::before {
+    background: linear-gradient(90deg, #FF9800, #F57C00);
+}
+
+.feed-card.software::before {
+    background: linear-gradient(90deg, #2196F3, #1976D2);
+}
+
+.feed-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.card-header h2 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+    font-size: 1.5rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+}
+
+.card-icon {
+    margin-right: 10px;
+    font-size: 1.8rem;
+}
+
+.card-header p {
+    color: #6c757d;
+    margin-bottom: 20px;
+}
+
 /* Cards */
 .card {
     background: white;
@@ -91,7 +156,7 @@ body {
     flex-wrap: wrap;
 }
 
-#rss-url {
+.rss-url {
     flex: 1;
     padding: 12px 15px;
     border: 2px solid #e1e8ed;
@@ -99,10 +164,10 @@ body {
     font-family: 'Courier New', monospace;
     font-size: 14px;
     background: #f8f9fa;
-    min-width: 300px;
+    min-width: 250px;
 }
 
-#rss-url:focus {
+.rss-url:focus {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -172,7 +237,7 @@ body {
 /* Feed Actions */
 .feed-actions {
     display: flex;
-    gap: 15px;
+    gap: 10px;
     flex-wrap: wrap;
     margin-top: 20px;
 }
@@ -244,18 +309,25 @@ body {
     font-size: 1.1rem;
 }
 
-/* Status Indicator */
-.status-indicator {
+/* Feed Status Grid */
+.feed-status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.feed-status-item {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 10px;
-    margin-top: 20px;
     padding: 15px;
     background: #f8f9fa;
     border-radius: 8px;
+    font-weight: 500;
 }
 
+/* Status Indicator */
 .indicator {
     width: 12px;
     height: 12px;
@@ -345,15 +417,20 @@ body {
         font-size: 1rem;
     }
     
-    .card {
+    .card, .feed-card {
         padding: 20px;
+    }
+    
+    .feed-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
     }
     
     .rss-url-container {
         flex-direction: column;
     }
     
-    #rss-url {
+    .rss-url {
         min-width: auto;
     }
     
@@ -366,6 +443,10 @@ body {
     }
     
     .status-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .feed-status-grid {
         grid-template-columns: 1fr;
     }
 }
@@ -382,22 +463,29 @@ body {
     .card h2 {
         font-size: 1.5rem;
     }
+    
+    .card-header h2 {
+        font-size: 1.3rem;
+    }
 }
 
 /* Dark Mode Support */
 @media (prefers-color-scheme: dark) {
-    .card {
+    .card, .feed-card {
         background: #2c3e50;
         color: #ecf0f1;
         border: 1px solid #34495e;
     }
     
-    .card h2,
-    .card h3 {
+    .card h2, .card h3, .card-header h2 {
         color: #ecf0f1;
     }
     
-    #rss-url {
+    .card-header p {
+        color: #bdc3c7;
+    }
+    
+    .rss-url {
         background: #34495e;
         color: #ecf0f1;
         border-color: #4a5f7a;
@@ -405,7 +493,7 @@ body {
     
     .instruction-item,
     .status-item,
-    .status-indicator {
+    .feed-status-item {
         background: #34495e;
         color: #ecf0f1;
     }
@@ -433,4 +521,29 @@ body {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Feed Type Specific Styles */
+.feed-card.games .btn-primary {
+    background: linear-gradient(45deg, #4CAF50, #2E7D32);
+}
+
+.feed-card.books .btn-primary {
+    background: linear-gradient(45deg, #FF9800, #F57C00);
+}
+
+.feed-card.software .btn-primary {
+    background: linear-gradient(45deg, #2196F3, #1976D2);
+}
+
+.feed-card.games .card-icon {
+    color: #4CAF50;
+}
+
+.feed-card.books .card-icon {
+    color: #FF9800;
+}
+
+.feed-card.software .card-icon {
+    color: #2196F3;
 }
