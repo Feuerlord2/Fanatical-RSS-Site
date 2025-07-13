@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// API Response structures based on the provided JSON
+// API Response structures for bundles API
 type FanaticalAPIBundle struct {
 	ProductID       string            `json:"product_id"`
 	SKU             string            `json:"sku"`
@@ -54,6 +54,75 @@ type BundleGame struct {
 	Price            map[string]float64 `json:"price"`
 }
 
+// API Response structures for promotions API
+type PromotionsResponse struct {
+	SaleRecords  []interface{}      `json:"saleRecords"`
+	FreeProducts []FreeProduct      `json:"freeProducts"`
+	Deliveries   []Delivery         `json:"deliveries"`
+	Vouchers     []Voucher          `json:"vouchers"`
+}
+
+type FreeProduct struct {
+	ID               string            `json:"_id"`
+	PartnerBrand     string            `json:"partnerBrand"`
+	Public           bool              `json:"public"`
+	ValidFrom        string            `json:"valid_from"`
+	ValidUntil       string            `json:"valid_until"`
+	MinSpend         map[string]float64 `json:"min_spend"`
+	MaxSpend         map[string]float64 `json:"max_spend"`
+	Book             bool              `json:"book"`
+	Bundle           bool              `json:"bundle"`
+	Game             bool              `json:"game"`
+	Products         []PromotionProduct `json:"products"`
+}
+
+type PromotionProduct struct {
+	ID       string            `json:"_id"`
+	Name     string            `json:"name"`
+	Slug     string            `json:"slug"`
+	Type     string            `json:"type"`
+	Cover    string            `json:"cover"`
+	Price    map[string]float64 `json:"price"`
+	Mystery  bool              `json:"mystery"`
+	Visible  ProductVisibility  `json:"visible"`
+	IsVisible bool             `json:"is_visible"`
+}
+
+type ProductVisibility struct {
+	ValidFrom string `json:"valid_from"`
+	ValidUntil string `json:"valid_until"`
+}
+
+type Delivery struct {
+	ID          string            `json:"_id"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Percent     int               `json:"percent"`
+	MinSpend    map[string]float64 `json:"min_spend"`
+	ValidFrom   string            `json:"valid_from"`
+	ValidUntil  string            `json:"valid_until"`
+	Public      bool              `json:"public"`
+	StarDeal    bool              `json:"star_deal"`
+}
+
+type Voucher struct {
+	ID           string            `json:"_id"`
+	Code         string            `json:"code"`
+	Title        string            `json:"title"`
+	Description  string            `json:"description"`
+	Percent      int               `json:"percent"`
+	MinSpend     map[string]float64 `json:"min_spend"`
+	MaxSpend     map[string]float64 `json:"max_spend"`
+	ValidFrom    string            `json:"valid_from"`
+	ValidUntil   string            `json:"valid_until"`
+	Public       bool              `json:"public"`
+	StarDeal     bool              `json:"star_deal"`
+	Game         bool              `json:"game"`
+	Bundle       bool              `json:"bundle"`
+	Book         bool              `json:"book"`
+	FullPriceOnly bool             `json:"full_price_only"`
+}
+
 func Run() {
 	wg := sync.WaitGroup{}
 	for _, category := range []string{"books", "games", "software"} {
@@ -74,14 +143,17 @@ func createFeed(bundles []FanaticalBundle, category string) (feeds.Feed, error) 
 
 	feed.Items = make([]*feeds.Item, len(bundles))
 	for idx, bundle := range bundles {
-		content := fmt.Sprintf("%s\n\nPrice: %s %.2f (Original: %.2f)\nDiscount: %d%%\nValid until: %s\nGames: %d",
+		content := fmt.Sprintf("%s\n\nPrice: %s %.2f (Original: %.2f)\nDiscount: %d%%\nValid until: %s",
 			bundle.Description,
 			bundle.Price.Currency,
 			bundle.Price.Amount,
 			bundle.Price.Original,
 			bundle.Price.Discount,
-			bundle.EndDate.Format("2006-01-02 15:04"),
-			bundle.GameTotal)
+			bundle.EndDate.Format("2006-01-02 15:04"))
+
+		if bundle.GameTotal > 0 {
+			content += fmt.Sprintf("\nGames: %d", bundle.GameTotal)
+		}
 
 		feed.Items[idx] = &feeds.Item{
 			Title:       bundle.Title,
@@ -103,17 +175,28 @@ func createFeed(bundles []FanaticalBundle, category string) (feeds.Feed, error) 
 func updateCategory(wg *sync.WaitGroup, category string) {
 	defer wg.Done()
 
-	log.WithField("category", category).Info("Fetching bundles from Fanatical API")
+	log.WithField("category", category).Info("Fetching data from Fanatical APIs")
 	
+	// Fetch from both APIs
 	bundles, err := fetchBundlesFromAPI()
 	if err != nil {
 		log.WithFields(log.Fields{
 			"category": category,
 			"error":    err.Error(),
 		}).Error("Failed to fetch bundles from API")
-		
-		// Create empty test bundle if API fails
-		bundles = createTestBundle(category)
+		bundles = []FanaticalBundle{}
+	}
+
+	promotions, err := fetchPromotionsFromAPI()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"category": category,
+			"error":    err.Error(),
+		}).Error("Failed to fetch promotions from API")
+	} else {
+		// Convert promotions to bundles and add them
+		promotionBundles := convertPromotionsToBundles(promotions, category)
+		bundles = append(bundles, promotionBundles...)
 	}
 	
 	// Filter bundles by category
@@ -183,25 +266,78 @@ func fetchBundlesFromAPI() ([]FanaticalBundle, error) {
 	
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch API: %w", err)
+		return nil, fmt.Errorf("failed to fetch bundles API: %w", err)
 	}
 	defer resp.Body.Close()
 	
-	log.WithField("status", resp.StatusCode).Info("API response received")
+	log.WithField("status", resp.StatusCode).Info("Bundles API response received")
 	
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("bundles API returned status %d", resp.StatusCode)
 	}
 	
 	var apiBundles []FanaticalAPIBundle
 	if err := json.NewDecoder(resp.Body).Decode(&apiBundles); err != nil {
-		return nil, fmt.Errorf("failed to decode API response: %w", err)
+		return nil, fmt.Errorf("failed to decode bundles API response: %w", err)
 	}
 	
 	log.WithField("bundles", len(apiBundles)).Info("Successfully fetched bundles from API")
 	
-	// Convert API bundles to internal format
+	return convertAPIBundlesToInternal(apiBundles), nil
+}
+
+func fetchPromotionsFromAPI() (*PromotionsResponse, error) {
+	url := "https://www.fanatical.com/api/all-promotions/en"
+	
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	// Add headers to appear like a real browser
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Referer", "https://www.fanatical.com/en/bundles")
+	req.Header.Set("Sec-Fetch-Dest", "empty")
+	req.Header.Set("Sec-Fetch-Mode", "cors")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch promotions API: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	log.WithField("status", resp.StatusCode).Info("Promotions API response received")
+	
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("promotions API returned status %d", resp.StatusCode)
+	}
+	
+	var promotions PromotionsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&promotions); err != nil {
+		return nil, fmt.Errorf("failed to decode promotions API response: %w", err)
+	}
+	
+	log.WithFields(log.Fields{
+		"free_products": len(promotions.FreeProducts),
+		"deliveries":    len(promotions.Deliveries),
+		"vouchers":      len(promotions.Vouchers),
+	}).Info("Successfully fetched promotions from API")
+	
+	return &promotions, nil
+}
+
+func convertAPIBundlesToInternal(apiBundles []FanaticalAPIBundle) []FanaticalBundle {
 	var bundles []FanaticalBundle
+	
 	for _, apiBundle := range apiBundles {
 		// Skip giveaways (free bundles) unless they have meaningful content
 		if apiBundle.Giveaway && apiBundle.GameTotal < 5 {
@@ -251,7 +387,148 @@ func fetchBundlesFromAPI() ([]FanaticalBundle, error) {
 		}
 	}
 	
-	return bundles, nil
+	return bundles
+}
+
+func convertPromotionsToBundles(promotions *PromotionsResponse, category string) []FanaticalBundle {
+	var bundles []FanaticalBundle
+	
+	// Convert free products to bundles
+	for _, freeProduct := range promotions.FreeProducts {
+		if !freeProduct.Public {
+			continue
+		}
+		
+		validUntil, err := time.Parse(time.RFC3339, freeProduct.ValidUntil)
+		if err != nil || validUntil.Before(time.Now()) {
+			continue
+		}
+		
+		validFrom, err := time.Parse(time.RFC3339, freeProduct.ValidFrom)
+		if err != nil {
+			validFrom = time.Now()
+		}
+		
+		for _, product := range freeProduct.Products {
+			if !product.IsVisible {
+				continue
+			}
+			
+			bundle := FanaticalBundle{
+				ID:          product.ID,
+				Title:       product.Name,
+				Description: createFreeProductDescription(freeProduct, product),
+				URL:         fmt.Sprintf("/en/game/%s", product.Slug),
+				Slug:        product.Slug,
+				Category:    determineProductCategory(product),
+				StartDate:   validFrom,
+				EndDate:     validUntil,
+				IsActive:    true,
+				GameTotal:   1,
+				Price: Price{
+					Currency: "USD",
+					Amount:   0,
+					Original: getPrice(product.Price, "USD"),
+					Discount: 100,
+				},
+			}
+			
+			bundles = append(bundles, bundle)
+		}
+	}
+	
+	// Convert vouchers to special entries (for games category only)
+	if category == "games" {
+		for _, voucher := range promotions.Vouchers {
+			if !voucher.Public || !voucher.Game {
+				continue
+			}
+			
+			validUntil, err := time.Parse(time.RFC3339, voucher.ValidUntil)
+			if err != nil || validUntil.Before(time.Now()) {
+				continue
+			}
+			
+			validFrom, err := time.Parse(time.RFC3339, voucher.ValidFrom)
+			if err != nil {
+				validFrom = time.Now()
+			}
+			
+			bundle := FanaticalBundle{
+				ID:          voucher.ID,
+				Title:       fmt.Sprintf("Voucher: %s", voucher.Title),
+				Description: createVoucherDescription(voucher),
+				URL:         "/en/bundles",
+				Slug:        "voucher-" + voucher.Code,
+				Category:    "games",
+				StartDate:   validFrom,
+				EndDate:     validUntil,
+				IsActive:    true,
+				GameTotal:   0,
+				Price: Price{
+					Currency: "USD",
+					Amount:   0,
+					Original: 0,
+					Discount: voucher.Percent,
+				},
+			}
+			
+			bundles = append(bundles, bundle)
+		}
+	}
+	
+	return bundles
+}
+
+func createFreeProductDescription(freeProduct FreeProduct, product PromotionProduct) string {
+	parts := []string{"🎁 FREE"}
+	
+	if product.Mystery {
+		parts = append(parts, "Mystery Game")
+	}
+	
+	if freeProduct.PartnerBrand != "" {
+		parts = append(parts, fmt.Sprintf("Partner: %s", freeProduct.PartnerBrand))
+	}
+	
+	minSpendUSD := getPrice(freeProduct.MinSpend, "USD")
+	if minSpendUSD > 0 {
+		parts = append(parts, fmt.Sprintf("Min spend: $%.0f", minSpendUSD))
+	}
+	
+	return strings.Join(parts, " • ")
+}
+
+func createVoucherDescription(voucher Voucher) string {
+	parts := []string{fmt.Sprintf("💰 %d%% OFF", voucher.Percent)}
+	
+	parts = append(parts, fmt.Sprintf("Code: %s", voucher.Code))
+	
+	if voucher.FullPriceOnly {
+		parts = append(parts, "Full price only")
+	}
+	
+	minSpendUSD := getPrice(voucher.MinSpend, "USD")
+	if minSpendUSD > 0 {
+		parts = append(parts, fmt.Sprintf("Min spend: $%.0f", minSpendUSD))
+	}
+	
+	return strings.Join(parts, " • ")
+}
+
+func determineProductCategory(product PromotionProduct) string {
+	productType := strings.ToLower(product.Type)
+	name := strings.ToLower(product.Name)
+	
+	if productType == "book" || strings.Contains(name, "book") {
+		return "books"
+	}
+	
+	if productType == "software" || strings.Contains(name, "software") {
+		return "software"
+	}
+	
+	return "games"
 }
 
 func getPrice(priceMap map[string]float64, preferredCurrency string) float64 {
@@ -362,7 +639,8 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		       (bundleCategory == "games" || 
 		        strings.Contains(title, "game") || 
 		        strings.Contains(title, "steam") ||
-		        strings.Contains(description, "game"))
+		        strings.Contains(description, "game") ||
+		        strings.Contains(title, "voucher"))
 	case "software":
 		return strings.Contains(title, "software") ||
 		       strings.Contains(title, "app") ||
