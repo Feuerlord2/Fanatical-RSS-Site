@@ -9,30 +9,32 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/Feuerlord2/Fanatical-RSS-Site/internal/models"
+	"github.com/username/Fanatical-RSS-Site/internal/models"
 )
 
-// Scraper for Fanatical bundle page
+// Scraper for Fanatical bundle pages
 type Scraper struct {
-	client  *http.Client
-	baseURL string
+	client     *http.Client
+	baseURL    string
+	bundleType string
 }
 
-// NewScraper creates a new scraper instance
-func NewScraper() *Scraper {
+// NewScraper creates a new scraper instance for a specific bundle type
+func NewScraper(bundleType string) *Scraper {
 	return &Scraper{
 		client: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		baseURL: "https://www.fanatical.com",
+		baseURL:    "https://www.fanatical.com",
+		bundleType: bundleType,
 	}
 }
 
 // FetchBundles retrieves all bundles from the Fanatical page
 func (s *Scraper) FetchBundles() ([]models.Bundle, error) {
-	url := s.baseURL + "/de/bundle/games"
+	url := fmt.Sprintf("%s/de/bundle/%s", s.baseURL, s.bundleType)
 	
-	log.Printf("Loading bundles from: %s", url)
+	log.Printf("Loading %s bundles from: %s", s.bundleType, url)
 	
 	// Create HTTP request
 	req, err := http.NewRequest("GET", url, nil)
@@ -81,6 +83,8 @@ func (s *Scraper) parseDocument(doc *goquery.Document) ([]models.Bundle, error) 
 		".product-card",
 		"article[class*='bundle']",
 		".grid-item",
+		".card",
+		"[class*='product']",
 	}
 	
 	var bundleElements *goquery.Selection
@@ -106,7 +110,7 @@ func (s *Scraper) parseDocument(doc *goquery.Document) ([]models.Bundle, error) 
 		}
 	})
 	
-	log.Printf("Extracted bundles: %d", len(bundles))
+	log.Printf("Extracted %s bundles: %d", s.bundleType, len(bundles))
 	
 	return bundles, nil
 }
@@ -114,9 +118,10 @@ func (s *Scraper) parseDocument(doc *goquery.Document) ([]models.Bundle, error) 
 // extractBundle extracts bundle information from an HTML element
 func (s *Scraper) extractBundle(index int, sel *goquery.Selection) models.Bundle {
 	bundle := models.Bundle{
-		ID:        fmt.Sprintf("bundle-%d-%d", time.Now().Unix(), index),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:         fmt.Sprintf("%s-bundle-%d-%d", s.bundleType, time.Now().Unix(), index),
+		BundleType: s.bundleType,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 	}
 	
 	// Extract title
@@ -128,6 +133,8 @@ func (s *Scraper) extractBundle(index int, sel *goquery.Selection) models.Bundle
 		"h2",
 		".title",
 		"[class*='title']",
+		".card-title",
+		".product-title",
 	}
 	
 	for _, selector := range titleSelectors {
@@ -151,6 +158,8 @@ func (s *Scraper) extractBundle(index int, sel *goquery.Selection) models.Bundle
 		"[class*='price']",
 		".bundle-price",
 		"span[class*='price']",
+		".cost",
+		"[class*='cost']",
 	}
 	
 	for _, selector := range priceSelectors {
@@ -160,18 +169,20 @@ func (s *Scraper) extractBundle(index int, sel *goquery.Selection) models.Bundle
 		}
 	}
 	
-	// Extract game count
-	gameCountSelectors := []string{
+	// Extract item count (games/books/software)
+	itemCountSelectors := []string{
 		".game-count",
-		"[class*='game']",
+		".item-count",
+		"[class*='count']",
 		".items",
-		"span[class*='count']",
+		"[class*='items']",
+		".quantity",
 	}
 	
-	for _, selector := range gameCountSelectors {
+	for _, selector := range itemCountSelectors {
 		if count := sel.Find(selector).First().Text(); count != "" {
-			if gameCount := s.extractGameCount(count); gameCount != "" {
-				bundle.GameCount = gameCount
+			if itemCount := s.extractItemCount(count); itemCount != "" {
+				bundle.ItemCount = itemCount
 				break
 			}
 		}
@@ -200,12 +211,12 @@ func (s *Scraper) extractBundle(index int, sel *goquery.Selection) models.Bundle
 
 // fallbackParsing as fallback when normal selectors don't work
 func (s *Scraper) fallbackParsing(doc *goquery.Document) ([]models.Bundle, error) {
-	log.Println("Using fallback parsing")
+	log.Printf("Using fallback parsing for %s", s.bundleType)
 	
 	var bundles []models.Bundle
 	
 	// Search for links pointing to bundle pages
-	doc.Find("a[href*='/bundle/']").Each(func(i int, sel *goquery.Selection) {
+	doc.Find(fmt.Sprintf("a[href*='/bundle/%s']", s.bundleType)).Each(func(i int, sel *goquery.Selection) {
 		href, exists := sel.Attr("href")
 		if !exists {
 			return
@@ -222,10 +233,11 @@ func (s *Scraper) fallbackParsing(doc *goquery.Document) ([]models.Bundle, error
 		
 		if title != "" {
 			bundle := models.Bundle{
-				ID:          fmt.Sprintf("fallback-%d", i),
+				ID:          fmt.Sprintf("%s-fallback-%d", s.bundleType, i),
 				Title:       strings.TrimSpace(title),
 				Link:        href,
-				Description: "Fanatical Bundle",
+				BundleType:  s.bundleType,
+				Description: fmt.Sprintf("Fanatical %s Bundle", strings.Title(s.bundleType)),
 				CreatedAt:   time.Now(),
 				UpdatedAt:   time.Now(),
 			}
@@ -246,7 +258,7 @@ func (s *Scraper) cleanPrice(price string) string {
 	price = regexp.MustCompile(`<[^>]*>`).ReplaceAllString(price, "")
 	price = strings.TrimSpace(price)
 	
-	// Extract price pattern
+	// Extract price pattern for Euro
 	pricePattern := regexp.MustCompile(`€\s*(\d+[,.]?\d*)`)
 	if matches := pricePattern.FindStringSubmatch(price); len(matches) > 1 {
 		return matches[1] + "€"
@@ -261,37 +273,55 @@ func (s *Scraper) cleanPrice(price string) string {
 	return price
 }
 
-func (s *Scraper) extractGameCount(text string) string {
-	// German pattern
-	gameCountPattern := regexp.MustCompile(`(\d+)\s*[Ss]piele?`)
-	if matches := gameCountPattern.FindStringSubmatch(text); len(matches) > 1 {
-		return matches[1] + " Games"
+func (s *Scraper) extractItemCount(text string) string {
+	var patterns []regexp.Regexp
+	var suffix string
+	
+	// Determine patterns based on bundle type
+	switch s.bundleType {
+	case "games":
+		patterns = []regexp.Regexp{
+			*regexp.MustCompile(`(\d+)\s*[Ss]piele?`),
+			*regexp.MustCompile(`(\d+)\s*[Gg]ames?`),
+		}
+		suffix = " Games"
+	case "books":
+		patterns = []regexp.Regexp{
+			*regexp.MustCompile(`(\d+)\s*[Bb]ücher?`),
+			*regexp.MustCompile(`(\d+)\s*[Bb]ooks?`),
+			*regexp.MustCompile(`(\d+)\s*[Ee]books?`),
+		}
+		suffix = " Books"
+	case "software":
+		patterns = []regexp.Regexp{
+			*regexp.MustCompile(`(\d+)\s*[Ss]oftware`),
+			*regexp.MustCompile(`(\d+)\s*[Pp]rograms?`),
+			*regexp.MustCompile(`(\d+)\s*[Aa]pps?`),
+		}
+		suffix = " Software"
 	}
 	
-	// English pattern
-	gameCountPattern = regexp.MustCompile(`(\d+)\s*[Gg]ames?`)
-	if matches := gameCountPattern.FindStringSubmatch(text); len(matches) > 1 {
-		return matches[1] + " Games"
-	}
+	// General items pattern
+	patterns = append(patterns, *regexp.MustCompile(`(\d+)\s*[Ii]tems?`))
 	
-	// Items pattern
-	itemsPattern := regexp.MustCompile(`(\d+)\s*[Ii]tems?`)
-	if matches := itemsPattern.FindStringSubmatch(text); len(matches) > 1 {
-		return matches[1] + " Items"
+	for _, pattern := range patterns {
+		if matches := pattern.FindStringSubmatch(text); len(matches) > 1 {
+			return matches[1] + suffix
+		}
 	}
 	
 	return ""
 }
 
 func (s *Scraper) generateDescription(bundle models.Bundle) string {
-	parts := []string{"Fanatical Bundle"}
+	parts := []string{fmt.Sprintf("Fanatical %s Bundle", strings.Title(s.bundleType))}
 	
 	if bundle.Price != "" {
 		parts = append(parts, "Price: "+bundle.Price)
 	}
 	
-	if bundle.GameCount != "" {
-		parts = append(parts, bundle.GameCount)
+	if bundle.ItemCount != "" {
+		parts = append(parts, bundle.ItemCount)
 	}
 	
 	if bundle.Tier != "" {
@@ -301,38 +331,4 @@ func (s *Scraper) generateDescription(bundle models.Bundle) string {
 	return strings.Join(parts, " - ")
 }
 
-// GetMockBundles returns test bundles
-func GetMockBundles() []models.Bundle {
-	return []models.Bundle{
-		{
-			ID:          "mock-1",
-			Title:       "Indie Game Bundle",
-			Link:        "https://www.fanatical.com/en/bundle/indie-game-bundle",
-			Description: "Indie Game Bundle - Price: $4.99 - 10 Games",
-			Price:       "$4.99",
-			GameCount:   "10 Games",
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
-		},
-		{
-			ID:          "mock-2",
-			Title:       "Strategy Bundle",
-			Link:        "https://www.fanatical.com/en/bundle/strategy-bundle",
-			Description: "Strategy Bundle - Price: $9.99 - 8 Games",
-			Price:       "$9.99",
-			GameCount:   "8 Games",
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
-		},
-		{
-			ID:          "mock-3",
-			Title:       "Action Bundle",
-			Link:        "https://www.fanatical.com/en/bundle/action-bundle",
-			Description: "Action Bundle - Price: $7.99 - 12 Games",
-			Price:       "$7.99",
-			GameCount:   "12 Games",
-			CreatedAt:   time.Now(),
-			UpdatedAt:   time.Now(),
-		},
-	}
-}
+// Note: Mock bundles removed - only real data from Fanatical is used
