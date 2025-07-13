@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fanatical Bundle RSS Feed</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="alternate" type="application/rss+xml" title="Fanatical Bundles" href="rss.xml">
+    <link rel="icon" type="image/x-icon" href="https://www.fanatical.com/favicon.ico">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">
+                    <span class="icon">📦</span>
+                    Fanatical Bundle RSS
+                </h1>
+                <p class="subtitle">Automatically generated RSS feed for Fanatical game bundles</p>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <section class="rss-info">
+                <div class="card">
+                    <h2>Subscribe to RSS Feed</h2>
+                    <p>Stay updated with the latest game bundles from Fanatical!</p>
+                    
+                    <div class="rss-url-container">
+                        <input type="text" id="rss-url" value="https://Feuerlord2.github.io/Fanatical-RSS-Site/rss.xml" readonly>
+                        <button onclick="copyToClipboard()" class="copy-btn">📋 Copy</button>
+                    </div>
+                    
+                    <div class="feed-actions">
+                        <a href="rss.xml" class="btn btn-primary" target="_blank">
+                            🔗 Open RSS Feed
+                        </a>
+                        <a href="https://www.fanatical.com/en/bundle/games" class="btn btn-secondary" target="_blank">
+                            🎮 Visit Fanatical
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="instructions">
+                <div class="card">
+                    <h2>How to use the RSS feed?</h2>
+                    
+                    <div class="instruction-grid">
+                        <div class="instruction-item">
+                            <h3>📱 Mobile Apps</h3>
+                            <ul>
+                                <li><strong>iOS:</strong> Reeder, NetNewsWire</li>
+                                <li><strong>Android:</strong> Feedly, Inoreader</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="instruction-item">
+                            <h3>💻 Desktop Apps</h3>
+                            <ul>
+                                <li><strong>Windows:</strong> RSSOwl, QuiteRSS</li>
+                                <li><strong>Mac:</strong> NetNewsWire, Reeder</li>
+                                <li><strong>Linux:</strong> Akregator, Liferea</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="instruction-item">
+                            <h3>🌐 Web Services</h3>
+                            <ul>
+                                <li>Feedly</li>
+                                <li>Inoreader</li>
+                                <li>The Old Reader</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="instruction-item">
+                            <h3>🔧 Browser Extensions</h3>
+                            <ul>
+                                <li>RSS Feed Reader (Chrome)</li>
+                                <li>Feedbro (Firefox)</li>
+                                <li>RSS Button (Safari)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="status">
+                <div class="card">
+                    <h2>Feed Status</h2>
+                    
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <span class="status-label">Last Update:</span>
+                            <span class="status-value" id="last-updated">Loading...</span>
+                        </div>
+                        
+                        <div class="status-item">
+                            <span class="status-label">Update Interval:</span>
+                            <span class="status-value">Daily at 17:00 UTC</span>
+                        </div>
+                        
+                        <div class="status-item">
+                            <span class="status-label">Feed Format:</span>
+                            <span class="status-value">RSS 2.0</span>
+                        </div>
+                        
+                        <div class="status-item">
+                            <span class="status-label">Source:</span>
+                            <span class="status-value">fanatical.com</span>
+                        </div>
+                    </div>
+                    
+                    <div class="status-indicator">
+                        <span class="indicator online" id="status-indicator"></span>
+                        <span id="status-text">Feed active</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="about">
+                <div class="card">
+                    <h2>About this Service</h2>
+                    <p>
+                        This RSS feed is automatically generated and updated daily. 
+                        It collects information about current game bundles from Fanatical and 
+                        provides them in a standardized RSS format.
+                    </p>
+                    
+                    <h3>Features:</h3>
+                    <ul class="feature-list">
+                        <li>✅ Automatic daily updates</li>
+                        <li>✅ Complete bundle information</li>
+                        <li>✅ Prices and game counts</li>
+                        <li>✅ Direct links to bundles</li>
+                        <li>✅ Compatible with all RSS readers</li>
+                        <li>✅ Responsive web interface</li>
+                    </ul>
+                    
+                    <div class="github-link">
+                        <a href="https://github.com/Feuerlord2/Fanatical-RSS-Site" target="_blank" class="btn btn-outline">
+                            🐙 GitHub Repository
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>
+                &copy; 2025 Fanatical Bundle RSS Generator | 
+                <a href="https://github.com/Feuerlord2/Fanatical-RSS-Site">Open Source</a> | 
+                Not officially affiliated with Fanatical
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Copy RSS URL to clipboard
+        function copyToClipboard() {
+            const urlInput = document.getElementById('rss-url');
+            urlInput.select();
+            urlInput.setSelectionRange(0, 99999);
+            document.execCommand('copy');
+            
+            const button = document.querySelector('.copy-btn');
+            const originalText = button.textContent;
+            button.textContent = '✅ Copied!';
+            button.style.background = '#28a745';
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = '';
+            }, 2000);
+        }
+        
+        // Load last updated date
+        async function loadLastUpdated() {
+            try {
+                const response = await fetch('last_updated.txt');
+                if (response.ok) {
+                    const text = await response.text();
+                    document.getElementById('last-updated').textContent = text.trim();
+                } else {
+                    document.getElementById('last-updated').textContent = 'Unknown';
+                }
+            } catch (error) {
+                document.getElementById('last-updated').textContent = 'Error loading';
+            }
+        }
+        
+        // Check feed status
+        async function checkFeedStatus() {
+            try {
+                const response = await fetch('rss.xml', { method: 'HEAD' });
+                const indicator = document.getElementById('status-indicator');
+                const statusText = document.getElementById('status-text');
+                
+                if (response.ok) {
+                    indicator.className = 'indicator online';
+                    statusText.textContent = 'Feed active';
+                } else {
+                    indicator.className = 'indicator offline';
+                    statusText.textContent = 'Feed unavailable';
+                }
+            } catch (error) {
+                const indicator = document.getElementById('status-indicator');
+                const statusText = document.getElementById('status-text');
+                indicator.className = 'indicator offline';
+                statusText.textContent = 'Connection error';
+            }
+        }
+        
+        // On page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLastUpdated();
+            checkFeedStatus();
+            
+            // Update status every 5 minutes
+            setInterval(checkFeedStatus, 300000);
+        });
+        
+        // Automatically adjust RSS URL based on current domain
+        if (window.location.hostname !== 'localhost') {
+            const rssUrl = `${window.location.origin}${window.location.pathname.replace(/\/[^\/]*$/, '/rss.xml')}`;
+            document.getElementById('rss-url').value = rssUrl;
+        }
+    </script>
+</body>
+</html>
