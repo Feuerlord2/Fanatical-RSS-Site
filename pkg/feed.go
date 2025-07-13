@@ -122,7 +122,7 @@ func updateCategory(wg *sync.WaitGroup, category string) {
 		return
 	}
 
-	// Look for JSON data in script tags (similar to Humble Bundle approach)
+	// Look for JSON data in script tags (similar to other bundle sites)
 	var bundles []FanaticalBundle
 	found := false
 
