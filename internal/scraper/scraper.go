@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/username/Fanatical-RSS-Site/internal/models"
+	"github.com/Feuerlord2/Fanatical-RSS-Site/internal/models"
 )
 
 // Scraper for Fanatical bundle pages
