@@ -151,10 +151,6 @@ func createFeed(bundles []FanaticalBundle, category string) (feeds.Feed, error) 
 			bundle.Price.Discount,
 			bundle.EndDate.Format("2006-01-02 15:04"))
 
-		if bundle.GameTotal > 0 {
-			content += fmt.Sprintf("\nGames: %d", bundle.GameTotal)
-		}
-
 		feed.Items[idx] = &feeds.Item{
 			Title:       bundle.Title,
 			Link:        &feeds.Link{Href: fmt.Sprintf("https://www.fanatical.com/en/bundle/%s", bundle.Slug)},
@@ -372,7 +368,6 @@ func convertAPIBundlesToInternal(apiBundles []FanaticalAPIBundle) []FanaticalBun
 			StartDate:   time.Unix(apiBundle.ValidFrom, 0),
 			EndDate:     time.Unix(apiBundle.ValidUntil, 0),
 			IsActive:    apiBundle.OnSale && !isExpired(apiBundle.ValidUntil),
-			GameTotal:   apiBundle.GameTotal,
 			Price: Price{
 				Currency: "USD",
 				Amount:   price,
@@ -424,7 +419,6 @@ func convertPromotionsToBundles(promotions *PromotionsResponse, category string)
 				StartDate:   validFrom,
 				EndDate:     validUntil,
 				IsActive:    true,
-				GameTotal:   1,
 				Price: Price{
 					Currency: "USD",
 					Amount:   0,
@@ -464,7 +458,6 @@ func convertPromotionsToBundles(promotions *PromotionsResponse, category string)
 				StartDate:   validFrom,
 				EndDate:     validUntil,
 				IsActive:    true,
-				GameTotal:   0,
 				Price: Price{
 					Currency: "USD",
 					Amount:   0,
@@ -662,7 +655,6 @@ func createTestBundle(category string) []FanaticalBundle {
 			StartDate:   time.Now(),
 			EndDate:     time.Now().Add(30 * 24 * time.Hour),
 			IsActive:    true,
-			GameTotal:   5,
 			Price: Price{
 				Currency: "USD",
 				Amount:   9.99,
