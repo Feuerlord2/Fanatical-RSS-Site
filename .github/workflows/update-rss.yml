@@ -1,0 +1,111 @@
+name: Update Fanatical RSS Feeds
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  # Allow manual triggering
+  workflow_dispatch:
+  # Run on push to main branch
+  push:
+    branches: [ main ]
+
+jobs:
+  update-feeds:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+          
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+            
+      - name: Download dependencies
+        run: go mod download
+        
+      - name: Build application
+        run: go build -o gofanatical ./cmd/gofanatical.go
+        
+      - name: Generate RSS feeds
+        run: |
+          echo "Generating RSS feeds..."
+          ./gofanatical
+          echo "RSS generation completed"
+          
+      - name: List generated files
+        run: |
+          echo "Generated files:"
+          ls -la *.rss 2>/dev/null || echo "No RSS files found"
+          
+      - name: Move RSS files to docs directory
+        run: |
+          echo "Moving RSS files to docs directory..."
+          mkdir -p docs
+          # Copy HTML file if it doesn't exist
+          if [ ! -f docs/index.html ]; then
+            echo "Warning: docs/index.html not found"
+          fi
+          # Move RSS files
+          mv *.rss docs/ 2>/dev/null || echo "No RSS files to move"
+          echo "Files in docs directory:"
+          ls -la docs/
+          
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
+          
+      - name: Check for changes
+        id: verify-changed-files
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected:"
+            git status --short
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected"
+          fi
+          
+      - name: Commit and push changes
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        run: |
+          git add docs/*.rss
+          git commit -m "🤖 Auto-update RSS feeds - $(date '+%Y-%m-%d %H:%M:%S UTC')"
+          git push
+          
+      - name: Deploy to GitHub Pages
+        if: steps.verify-changed-files.outputs.changed == 'true'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          force_orphan: true
+          
+      - name: Summary
+        run: |
+          echo "## RSS Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "- **Changes**: ${{ steps.verify-changed-files.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.verify-changed-files.outputs.changed }}" == "true" ]; then
+            echo "- **Status**: ✅ RSS feeds updated successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Status**: ℹ️ No changes to RSS feeds" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "- **Live Site**: https://feuerlord2.github.io/Fanatical-RSS-Site/" >> $GITHUB_STEP_SUMMARY
