@@ -18,6 +18,40 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// API Response structures
+type AlgoliaBundle struct {
+	ObjectID     string    `json:"objectID"`
+	Name         string    `json:"name"`
+	Title        string    `json:"title"`
+	Description  string    `json:"description"`
+	URL          string    `json:"url"`
+	Slug         string    `json:"slug"`
+	StartDate    time.Time `json:"start_date"`
+	EndDate      time.Time `json:"end_date"`
+	IsActive     bool      `json:"is_active"`
+	Price        APIPrice  `json:"price"`
+	Category     string    `json:"category"`
+	Tags         []string  `json:"tags"`
+	Image        string    `json:"image"`
+	Worth        float64   `json:"worth"`
+	Discount     int       `json:"discount"`
+	TotalItems   int       `json:"total_items"`
+}
+
+type APIPrice struct {
+	Currency string  `json:"currency"`
+	Amount   float64 `json:"amount"`
+	Original float64 `json:"original"`
+	Discount int     `json:"discount"`
+}
+
+type AlgoliaResponse struct {
+	Hits []AlgoliaBundle `json:"hits"`
+	Page int             `json:"page"`
+	NbHits int           `json:"nbHits"`
+	NbPages int          `json:"nbPages"`
+}
+
 func Run() {
 	wg := sync.WaitGroup{}
 	for _, category := range []string{"books", "games", "software"} {
@@ -66,81 +100,41 @@ func createFeed(bundles []FanaticalBundle, category string) (feeds.Feed, error) 
 func updateCategory(wg *sync.WaitGroup, category string) {
 	defer wg.Done()
 
-	// Try to fetch bundles from Fanatical website
-	log.WithField("category", category).Info("Fetching bundles from Fanatical website")
+	log.WithField("category", category).Info("Fetching bundles from Fanatical API")
 	
-	url := "https://www.fanatical.com/en/bundles"
-	
-	// Create HTTP client with headers to avoid blocking
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-	
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		log.WithField("error", err.Error()).Error("Failed to create request")
-		return
-	}
-	
-	// Add headers to appear like a real browser
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Connection", "keep-alive")
-	
-	resp, err := client.Do(req)
+	bundles, err := fetchBundlesFromAPI()
 	if err != nil {
 		log.WithFields(log.Fields{
 			"category": category,
 			"error":    err.Error(),
-		}).Error("Failed to fetch bundles page")
-		return
+		}).Error("Failed to fetch bundles from API, falling back to HTML scraping")
+		
+		// Fallback to HTML scraping if API fails
+		bundles = fetchBundlesFromHTML(category)
 	}
-	defer resp.Body.Close()
+	
+	// Filter bundles by category
+	var filteredBundles []FanaticalBundle
+	for _, bundle := range bundles {
+		if shouldIncludeBundle(bundle, category) {
+			filteredBundles = append(filteredBundles, bundle)
+		}
+	}
 	
 	log.WithFields(log.Fields{
 		"category": category,
-		"status":   resp.StatusCode,
-		"url":      url,
-	}).Info("HTTP response received")
+		"total":    len(bundles),
+		"filtered": len(filteredBundles),
+	}).Info("Bundle filtering completed")
 	
-	if resp.StatusCode != 200 {
-		log.WithFields(log.Fields{
-			"category": category,
-			"status":   resp.StatusCode,
-		}).Error("HTTP error when fetching bundles")
-		return
-	}
-	
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		log.WithField("category", category).Error("Failed to parse HTML")
-		return
-	}
-	
-	// Debug: Log page title and basic info
-	pageTitle := doc.Find("title").Text()
-	log.WithFields(log.Fields{
-		"category": category,
-		"title":    pageTitle,
-	}).Info("Page loaded successfully")
-	
-	// Try to extract bundles from the page
-	bundles := extractBundlesFromFanatical(doc, category)
-	
-	log.WithFields(log.Fields{
-		"category": category,
-		"count":    len(bundles),
-	}).Info("Bundle extraction completed")
-	
-	// If no bundles found, create at least one test bundle to verify RSS generation works
-	if len(bundles) == 0 {
-		log.WithField("category", category).Warn("No bundles found on website, creating test bundle")
-		bundles = []FanaticalBundle{
+	// If no bundles found, create a test bundle
+	if len(filteredBundles) == 0 {
+		log.WithField("category", category).Warn("No bundles found, creating test bundle")
+		filteredBundles = []FanaticalBundle{
 			{
 				ID:          fmt.Sprintf("%s-test", category),
 				Title:       fmt.Sprintf("Test %s Bundle", strings.Title(category)),
-				Description: fmt.Sprintf("Test bundle for %s category - website scraping found no results", category),
+				Description: fmt.Sprintf("Test bundle for %s category - no active bundles found", category),
 				URL:         "/en/bundle/test",
 				Category:    category,
 				StartDate:   time.Now(),
@@ -156,7 +150,7 @@ func updateCategory(wg *sync.WaitGroup, category string) {
 		}
 	}
 	
-	feed, err := createFeed(bundles, category)
+	feed, err := createFeed(filteredBundles, category)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"category": category,
@@ -173,9 +167,119 @@ func updateCategory(wg *sync.WaitGroup, category string) {
 	} else {
 		log.WithFields(log.Fields{
 			"category": category,
-			"bundles":  len(bundles),
+			"bundles":  len(filteredBundles),
 		}).Info("Successfully created RSS feed")
 	}
+}
+
+func fetchBundlesFromAPI() ([]FanaticalBundle, error) {
+	url := "https://www.fanatical.com/api/algolia/bundles?altRank=false"
+	
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	// Add headers to appear like a real browser
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Referer", "https://www.fanatical.com/en/bundles")
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch API: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
+	}
+	
+	var apiResponse AlgoliaResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode API response: %w", err)
+	}
+	
+	log.WithFields(log.Fields{
+		"bundles": len(apiResponse.Hits),
+		"pages":   apiResponse.NbPages,
+		"total":   apiResponse.NbHits,
+	}).Info("Successfully fetched bundles from API")
+	
+	// Convert API bundles to internal format
+	var bundles []FanaticalBundle
+	for _, apiBundle := range apiResponse.Hits {
+		bundle := FanaticalBundle{
+			ID:          apiBundle.ObjectID,
+			Title:       apiBundle.Name,
+			Description: apiBundle.Description,
+			URL:         apiBundle.URL,
+			Category:    apiBundle.Category,
+			StartDate:   apiBundle.StartDate,
+			EndDate:     apiBundle.EndDate,
+			IsActive:    apiBundle.IsActive,
+			Price: Price{
+				Currency: apiBundle.Price.Currency,
+				Amount:   apiBundle.Price.Amount,
+				Original: apiBundle.Price.Original,
+				Discount: apiBundle.Price.Discount,
+			},
+		}
+		
+		// Only include active bundles
+		if bundle.IsActive {
+			bundles = append(bundles, bundle)
+		}
+	}
+	
+	return bundles, nil
+}
+
+func fetchBundlesFromHTML(category string) []FanaticalBundle {
+	log.WithField("category", category).Info("Fetching bundles from HTML as fallback")
+	
+	url := "https://www.fanatical.com/en/bundles"
+	
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		log.WithField("error", err.Error()).Error("Failed to create HTML request")
+		return []FanaticalBundle{}
+	}
+	
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
+	req.Header.Set("Connection", "keep-alive")
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		log.WithField("error", err.Error()).Error("Failed to fetch HTML")
+		return []FanaticalBundle{}
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		log.WithField("status", resp.StatusCode).Error("HTML fetch failed")
+		return []FanaticalBundle{}
+	}
+	
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		log.WithField("error", err.Error()).Error("Failed to parse HTML")
+		return []FanaticalBundle{}
+	}
+	
+	return extractBundlesFromFanatical(doc, category)
 }
 
 func extractBundlesFromFanatical(doc *goquery.Document, category string) []FanaticalBundle {
