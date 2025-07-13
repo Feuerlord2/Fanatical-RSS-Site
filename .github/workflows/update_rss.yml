@@ -1,10 +1,10 @@
-name: Update RSS Feed
+name: Update RSS Feeds
 
 on:
   schedule:
-    # Läuft jeden Tag um 17:00 UTC (18:00 CET / 19:00 CEST)
+    # Runs every day at 17:00 UTC (18:00 CET / 19:00 CEST)
     - cron: '0 17 * * *'
-  workflow_dispatch: # Manueller Trigger für Tests
+  workflow_dispatch: # Manual trigger for testing
   push:
     branches: [ main ]
 
@@ -37,30 +37,66 @@ jobs:
     - name: Install dependencies
       run: go mod download
       
-    - name: Generate RSS Feed
+    - name: Generate Games RSS Feed
       run: |
-        go run cmd/generator/main.go > docs/rss.xml
+        if ! go run cmd/generator/main.go games > docs/rss_games.xml; then
+          echo "Failed to generate games RSS feed"
+          echo "Creating empty games RSS feed"
+          echo '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Fanatical Game Bundles</title><link>https://www.fanatical.com/en/bundle/games</link><description>No bundles available</description></channel></rss>' > docs/rss_games.xml
+        fi
         
-    - name: Validate RSS Feed
+    - name: Generate Books RSS Feed
       run: |
-        # Prüfe ob RSS-Datei erstellt wurde und nicht leer ist
-        if [ ! -f docs/rss.xml ]; then
-          echo "RSS file not created!"
-          exit 1
+        if ! go run cmd/generator/main.go books > docs/rss_books.xml; then
+          echo "Failed to generate books RSS feed"
+          echo "Creating empty books RSS feed"
+          echo '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Fanatical Book Bundles</title><link>https://www.fanatical.com/en/bundle/books</link><description>No bundles available</description></channel></rss>' > docs/rss_books.xml
         fi
         
-        if [ ! -s docs/rss.xml ]; then
-          echo "RSS file is empty!"
-          exit 1
+    - name: Generate Software RSS Feed
+      run: |
+        if ! go run cmd/generator/main.go software > docs/rss_software.xml; then
+          echo "Failed to generate software RSS feed"
+          echo "Creating empty software RSS feed"
+          echo '<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>Fanatical Software Bundles</title><link>https://www.fanatical.com/en/bundle/software</link><description>No bundles available</description></channel></rss>' > docs/rss_software.xml
         fi
         
-        # Prüfe ob RSS-Datei gültiges XML enthält
-        if ! xmllint --noout docs/rss.xml; then
-          echo "RSS file is not valid XML!"
-          exit 1
-        fi
+    - name: Create combined RSS index
+      run: |
+        echo "Games RSS: $(wc -l < docs/rss_games.xml) lines" > docs/rss_status.txt
+        echo "Books RSS: $(wc -l < docs/rss_books.xml) lines" >> docs/rss_status.txt
+        echo "Software RSS: $(wc -l < docs/rss_software.xml) lines" >> docs/rss_status.txt
         
-        echo "RSS feed validation successful!"
+    - name: Validate RSS Feeds
+      run: |
+        # Check if RSS files were created and are not empty
+        for feed in games books software; do
+          if [ ! -f "docs/rss_${feed}.xml" ]; then
+            echo "RSS file for ${feed} not created!"
+            exit 1
+          fi
+          
+          if [ ! -s "docs/rss_${feed}.xml" ]; then
+            echo "RSS file for ${feed} is empty!"
+            exit 1
+          fi
+          
+          # Check if RSS file contains valid XML
+          if ! xmllint --noout "docs/rss_${feed}.xml"; then
+            echo "RSS file for ${feed} is not valid XML!"
+            exit 1
+          fi
+          
+          echo "RSS feed for ${feed} validation successful!"
+        done
+        
+    - name: Copy web files
+      run: |
+        cp web/index.html docs/
+        cp web/style.css docs/
+        cp web/games.html docs/ 2>/dev/null || echo "games.html not found, will be created"
+        cp web/books.html docs/ 2>/dev/null || echo "books.html not found, will be created"
+        cp web/software.html docs/ 2>/dev/null || echo "software.html not found, will be created"
         
     - name: Update timestamp
       run: |
@@ -71,23 +107,24 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         
-        # Prüfe ob es Änderungen gibt
-        if git diff --quiet docs/rss.xml; then
-          echo "No changes to RSS feed"
+        # Check if there are changes
+        if git diff --quiet docs/; then
+          echo "No changes to RSS feeds"
         else
-          git add docs/rss.xml docs/last_updated.txt
-          git commit -m "Update RSS feed - $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git add docs/
+          git commit -m "Update RSS feeds - $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
-          echo "RSS feed updated and pushed"
+          echo "RSS feeds updated and pushed"
         fi
         
     - name: Create deployment artifact
       uses: actions/upload-artifact@v3
       with:
-        name: rss-feed
+        name: rss-feeds
         path: |
-          docs/rss.xml
+          docs/rss_*.xml
           docs/last_updated.txt
+          docs/rss_status.txt
         retention-days: 30
         
     - name: Deploy to GitHub Pages
@@ -106,6 +143,6 @@ jobs:
     steps:
     - name: Send notification on failure
       run: |
-        echo "RSS feed update failed!"
-        # Hier könntest du weitere Benachrichtigungen hinzufügen
-        # z.B. Slack, Discord, E-Mail, etc.
+        echo "RSS feeds update failed!"
+        # Here you could add additional notifications
+        # e.g. Slack, Discord, Email, etc.
