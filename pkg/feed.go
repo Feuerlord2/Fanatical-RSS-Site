@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"sort"
@@ -42,6 +43,10 @@ type FanaticalAPIBundle struct {
 	DLCTotal        int               `json:"dlc_total"`
 	BundleCovers    []BundleGame      `json:"bundle_covers"`
 	PNMSaving       int               `json:"pnm_saving"`
+	// Neue Felder basierend auf deinem JSON
+	OperatingSystems []string         `json:"operating_systems"`
+	Features         []string         `json:"features"`
+	Categories       []string         `json:"categories"`
 }
 
 type BundleGame struct {
@@ -143,20 +148,19 @@ func createFeed(bundles []FanaticalBundle, category string) (feeds.Feed, error) 
 
 	feed.Items = make([]*feeds.Item, len(bundles))
 	for idx, bundle := range bundles {
-		content := fmt.Sprintf("%s\n\nPrice: %s %.2f (Original: %.2f)\nDiscount: %d%%\nValid until: %s",
-			bundle.Description,
-			bundle.Price.Currency,
-			bundle.Price.Amount,
-			bundle.Price.Original,
-			bundle.Price.Discount,
-			bundle.EndDate.Format("2006-01-02 15:04"))
+		// Verbesserter Content mit mehr Details
+		content := createRichContent(bundle)
+		
+		// Verbesserter Titel mit Emoji und Discount Info
+		title := createEnhancedTitle(bundle)
 
 		feed.Items[idx] = &feeds.Item{
-			Title:       bundle.Title,
-			Link:        &feeds.Link{Href: fmt.Sprintf("https://www.fanatical.com/en/bundle/%s", bundle.Slug)},
+			Title:       title,
+			Link:        &feeds.Link{Href: fmt.Sprintf("https://www.fanatical.com%s", bundle.URL)},
 			Content:     content,
 			Created:     bundle.StartDate,
 			Description: bundle.Description,
+			Id:          fmt.Sprintf("fanatical-%s-%d", bundle.Slug, bundle.StartDate.Unix()),
 		}
 	}
 
@@ -166,6 +170,86 @@ func createFeed(bundles []FanaticalBundle, category string) (feeds.Feed, error) 
 	})
 
 	return feed, nil
+}
+
+// Neue Funktion für verbesserten Titel
+func createEnhancedTitle(bundle FanaticalBundle) string {
+	var titleParts []string
+	
+	// Emoji basierend auf Discount
+	if bundle.Price.Discount >= 90 {
+		titleParts = append(titleParts, "🔥")
+	} else if bundle.Price.Discount >= 75 {
+		titleParts = append(titleParts, "⚡")
+	} else if bundle.Price.Discount >= 50 {
+		titleParts = append(titleParts, "💥")
+	}
+	
+	titleParts = append(titleParts, bundle.Title)
+	
+	// Discount und Preis Info
+	if bundle.Price.Discount > 0 {
+		titleParts = append(titleParts, fmt.Sprintf("(%d%% OFF)", bundle.Price.Discount))
+	}
+	
+	if bundle.Price.Amount > 0 {
+		titleParts = append(titleParts, fmt.Sprintf("- $%.2f", bundle.Price.Amount))
+	} else {
+		titleParts = append(titleParts, "- FREE")
+	}
+	
+	return strings.Join(titleParts, " ")
+}
+
+// Neue Funktion für reicheren Content
+func createRichContent(bundle FanaticalBundle) string {
+	var content strings.Builder
+	
+	content.WriteString(fmt.Sprintf("<h3>%s</h3>\n", bundle.Title))
+	content.WriteString(fmt.Sprintf("<p>%s</p>\n", bundle.Description))
+	
+	// Preis-Tabelle
+	content.WriteString("<table border='1' style='border-collapse: collapse; margin: 10px 0;'>\n")
+	content.WriteString("<tr style='background-color: #f0f0f0;'><th style='padding: 5px;'>Current Price</th><th style='padding: 5px;'>Original Price</th><th style='padding: 5px;'>Discount</th><th style='padding: 5px;'>You Save</th></tr>\n")
+	
+	currentPrice := "$" + fmt.Sprintf("%.2f", bundle.Price.Amount)
+	if bundle.Price.Amount == 0 {
+		currentPrice = "FREE"
+	}
+	
+	originalPrice := "$" + fmt.Sprintf("%.2f", bundle.Price.Original)
+	if bundle.Price.Original == 0 {
+		originalPrice = "N/A"
+	}
+	
+	savings := bundle.Price.Original - bundle.Price.Amount
+	savingsText := "$" + fmt.Sprintf("%.2f", savings)
+	if savings <= 0 {
+		savingsText = "N/A"
+	}
+	
+	content.WriteString(fmt.Sprintf("<tr><td style='padding: 5px; text-align: center;'><strong>%s</strong></td><td style='padding: 5px; text-align: center;'>%s</td><td style='padding: 5px; text-align: center;'>%d%%</td><td style='padding: 5px; text-align: center;'>%s</td></tr>\n",
+		currentPrice, originalPrice, bundle.Price.Discount, savingsText))
+	content.WriteString("</table>\n")
+	
+	// Verfügbarkeit
+	content.WriteString("<h4>⏰ Availability</h4>\n")
+	content.WriteString("<ul>\n")
+	content.WriteString(fmt.Sprintf("<li><strong>Ends:</strong> %s</li>\n", bundle.EndDate.Format("January 2, 2006 15:04 MST")))
+	
+	// Verbleibende Zeit
+	timeRemaining := time.Until(bundle.EndDate)
+	if timeRemaining > 0 {
+		days := int(timeRemaining.Hours() / 24)
+		hours := int(timeRemaining.Hours()) % 24
+		content.WriteString(fmt.Sprintf("<li><strong>Time Remaining:</strong> %d days, %d hours</li>\n", days, hours))
+	}
+	content.WriteString("</ul>\n")
+	
+	// Direct Link
+	content.WriteString(fmt.Sprintf("<p><a href='https://www.fanatical.com%s' style='background-color: #ff6f00; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;'>🛒 Get this deal on Fanatical</a></p>\n", bundle.URL))
+	
+	return content.String()
 }
 
 func updateCategory(wg *sync.WaitGroup, category string) {
@@ -269,6 +353,12 @@ func fetchBundlesFromAPI() ([]FanaticalBundle, error) {
 	log.WithField("status", resp.StatusCode).Info("Bundles API response received")
 	
 	if resp.StatusCode != 200 {
+		// Lese Body für bessere Fehlerdiagnose
+		body, _ := io.ReadAll(resp.Body)
+		log.WithFields(log.Fields{
+			"status": resp.StatusCode,
+			"body":   string(body)[:min(500, len(body))],
+		}).Error("API returned non-200 status")
 		return nil, fmt.Errorf("bundles API returned status %d", resp.StatusCode)
 	}
 	
@@ -280,6 +370,14 @@ func fetchBundlesFromAPI() ([]FanaticalBundle, error) {
 	log.WithField("bundles", len(apiBundles)).Info("Successfully fetched bundles from API")
 	
 	return convertAPIBundlesToInternal(apiBundles), nil
+}
+
+// Helper function für Go 1.20
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func fetchPromotionsFromAPI() (*PromotionsResponse, error) {
@@ -333,10 +431,24 @@ func fetchPromotionsFromAPI() (*PromotionsResponse, error) {
 
 func convertAPIBundlesToInternal(apiBundles []FanaticalAPIBundle) []FanaticalBundle {
 	var bundles []FanaticalBundle
+	var skippedCount int
 	
 	for _, apiBundle := range apiBundles {
-		// Skip giveaways (free bundles) unless they have meaningful content
+		// Skip invalid bundles
+		if apiBundle.Name == "" {
+			skippedCount++
+			continue
+		}
+		
+		// Skip expired bundles
+		if isExpired(apiBundle.ValidUntil) {
+			skippedCount++
+			continue
+		}
+		
+		// Skip giveaways unless they have meaningful content
 		if apiBundle.Giveaway && apiBundle.GameTotal < 5 {
+			skippedCount++
 			continue
 		}
 		
@@ -355,8 +467,8 @@ func convertAPIBundlesToInternal(apiBundles []FanaticalAPIBundle) []FanaticalBun
 			discount = apiBundle.PNMSaving
 		}
 		
-		// Create description from bundle info
-		description := createBundleDescription(apiBundle)
+		// Create enhanced description
+		description := createEnhancedBundleDescription(apiBundle)
 		
 		bundle := FanaticalBundle{
 			ID:          apiBundle.ProductID,
@@ -379,12 +491,76 @@ func convertAPIBundlesToInternal(apiBundles []FanaticalAPIBundle) []FanaticalBun
 		// Only include active bundles
 		if bundle.IsActive {
 			bundles = append(bundles, bundle)
+		} else {
+			skippedCount++
 		}
 	}
+	
+	log.WithFields(log.Fields{
+		"total":    len(apiBundles),
+		"active":   len(bundles),
+		"skipped":  skippedCount,
+	}).Info("Bundle conversion completed")
 	
 	return bundles
 }
 
+// Verbesserte Bundle-Beschreibung basierend auf deinem JSON
+func createEnhancedBundleDescription(apiBundle FanaticalAPIBundle) string {
+	parts := []string{}
+	
+	// Type-specific descriptions
+	switch apiBundle.Type {
+	case "pick-and-mix":
+		parts = append(parts, "🎯 Build your own bundle")
+	case "bundle":
+		parts = append(parts, "📦 Bundle")
+	case "game":
+		if apiBundle.StarDeal {
+			parts = append(parts, "⭐ Star Deal")
+		}
+	}
+	
+	// Game/DLC count
+	if apiBundle.GameTotal > 0 {
+		parts = append(parts, fmt.Sprintf("%d games", apiBundle.GameTotal))
+	}
+	if apiBundle.DLCTotal > 0 {
+		parts = append(parts, fmt.Sprintf("%d DLC", apiBundle.DLCTotal))
+	}
+	
+	// Special indicators
+	if apiBundle.BestEver {
+		parts = append(parts, "🏆 Best price ever!")
+	}
+	if apiBundle.FlashSale {
+		parts = append(parts, "⚡ Flash sale!")
+	}
+	if apiBundle.StarDeal {
+		parts = append(parts, "⭐ Star Deal")
+	}
+	if apiBundle.Giveaway {
+		parts = append(parts, "🎁 FREE")
+	}
+	
+	// DRM info
+	if len(apiBundle.DRM) > 0 {
+		parts = append(parts, fmt.Sprintf("DRM: %s", strings.Join(apiBundle.DRM, ", ")))
+	}
+	
+	// Operating systems (aus deinem JSON)
+	if len(apiBundle.OperatingSystems) > 0 {
+		parts = append(parts, fmt.Sprintf("OS: %s", strings.Join(apiBundle.OperatingSystems, ", ")))
+	}
+	
+	if len(parts) == 0 {
+		return "Great gaming content with amazing savings"
+	}
+	
+	return strings.Join(parts, " • ")
+}
+
+// Rest der Funktionen bleibt unverändert...
 func convertPromotionsToBundles(promotions *PromotionsResponse, category string) []FanaticalBundle {
 	var bundles []FanaticalBundle
 	
@@ -540,60 +716,39 @@ func getPrice(priceMap map[string]float64, preferredCurrency string) float64 {
 	return 0
 }
 
-func createBundleDescription(apiBundle FanaticalAPIBundle) string {
-	parts := []string{}
-	
-	if apiBundle.Type == "pick-and-mix" {
-		parts = append(parts, "Build your own bundle")
-	}
-	
-	if apiBundle.GameTotal > 0 {
-		parts = append(parts, fmt.Sprintf("%d games", apiBundle.GameTotal))
-	}
-	
-	if apiBundle.DLCTotal > 0 {
-		parts = append(parts, fmt.Sprintf("%d DLC", apiBundle.DLCTotal))
-	}
-	
-	if apiBundle.BestEver {
-		parts = append(parts, "Best price ever!")
-	}
-	
-	if apiBundle.FlashSale {
-		parts = append(parts, "Flash sale!")
-	}
-	
-	if apiBundle.StarDeal {
-		parts = append(parts, "⭐ Star Deal")
-	}
-	
-	if len(apiBundle.DRM) > 0 {
-		parts = append(parts, fmt.Sprintf("DRM: %s", strings.Join(apiBundle.DRM, ", ")))
-	}
-	
-	if len(parts) == 0 {
-		return "Game bundle with great savings"
-	}
-	
-	return strings.Join(parts, " • ")
-}
-
 func determineBundleCategory(apiBundle FanaticalAPIBundle) string {
 	name := strings.ToLower(apiBundle.Name)
 	displayType := strings.ToLower(apiBundle.DisplayType)
+	bundleType := strings.ToLower(apiBundle.Type)
 	
-	// Check display type first
+	// Check display type first (most reliable)
 	if strings.Contains(displayType, "book") {
 		return "books"
 	}
+	if strings.Contains(displayType, "software") {
+		return "software"
+	}
+	
+	// Check bundle type
+	if bundleType == "book-bundle" || bundleType == "elearning-bundle" {
+		return "books"
+	}
+	if bundleType == "software-bundle" {
+		return "software"
+	}
 	
 	// Check bundle name for category hints
-	if strings.Contains(name, "book") || strings.Contains(name, "rpg") || 
-	   strings.Contains(name, "tabletop") {
+	if strings.Contains(name, "book") || 
+	   strings.Contains(name, "rpg") || 
+	   strings.Contains(name, "tabletop") ||
+	   strings.Contains(name, "certification") ||
+	   strings.Contains(name, "learning") {
 		return "books"
 	}
 	
-	if strings.Contains(name, "software") || strings.Contains(name, "app") {
+	if strings.Contains(name, "software") || 
+	   strings.Contains(name, "app") ||
+	   strings.Contains(name, "development") {
 		return "software"
 	}
 	
@@ -624,7 +779,9 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		       strings.Contains(title, "rpg") ||
 		       strings.Contains(title, "tabletop") ||
 		       strings.Contains(description, "book") ||
-		       strings.Contains(description, "rpg")
+		       strings.Contains(description, "rpg") ||
+		       strings.Contains(title, "certification") ||
+		       strings.Contains(title, "learning")
 	case "games":
 		return !strings.Contains(title, "book") && 
 		       !strings.Contains(title, "software") &&
@@ -701,6 +858,7 @@ func writeFeedToFile(feed feeds.Feed, category string) error {
 	log.WithFields(log.Fields{
 		"category": category,
 		"file":     filename,
+		"size":     len(rss),
 	}).Info("RSS feed written successfully")
 	return nil
 }
