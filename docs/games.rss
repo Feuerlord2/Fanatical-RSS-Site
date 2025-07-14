@@ -4,17 +4,26 @@
     <link>https://feuerlord2.github.io/Fanatical-RSS-Site/</link>
     <description>Latest Fanatical games bundles with amazing deals and discounts!</description>
     <managingEditor>DanielWinterEmsdetten+rss@gmail.com (Daniel Winter)</managingEditor>
-    <pubDate>Mon, 14 Jul 2025 18:32:59 +0000</pubDate>
+    <pubDate>Mon, 14 Jul 2025 19:19:34 +0000</pubDate>
     <item>
-      <title>Test Games Bundle</title>
-      <link>https://www.fanatical.com/en/bundle/</link>
+      <title>⚡ Test Games Bundle (80% OFF) - $9.99</title>
+      <link>https://www.fanatical.com/en/bundle/test</link>
       <description>Test bundle for games category - no active bundles found</description>
-      <content:encoded><![CDATA[Test bundle for games category - no active bundles found
-
-Price: USD 9.99 (Original: 49.99)
-Discount: 80%
-Valid until: 2025-08-13 18:32]]></content:encoded>
-      <pubDate>Mon, 14 Jul 2025 18:32:59 +0000</pubDate>
+      <content:encoded><![CDATA[<h3>Test Games Bundle</h3>
+<p>Test bundle for games category - no active bundles found</p>
+<table border='1' style='border-collapse: collapse; margin: 10px 0;'>
+<tr style='background-color: #f0f0f0;'><th style='padding: 5px;'>Current Price</th><th style='padding: 5px;'>Original Price</th><th style='padding: 5px;'>Discount</th><th style='padding: 5px;'>You Save</th></tr>
+<tr><td style='padding: 5px; text-align: center;'><strong>$9.99</strong></td><td style='padding: 5px; text-align: center;'>$49.99</td><td style='padding: 5px; text-align: center;'>80%</td><td style='padding: 5px; text-align: center;'>$40.00</td></tr>
+</table>
+<h4>⏰ Availability</h4>
+<ul>
+<li><strong>Ends:</strong> August 13, 2025 19:19 UTC</li>
+<li><strong>Time Remaining:</strong> 29 days, 23 hours</li>
+</ul>
+<p><a href='https://www.fanatical.com/en/bundle/test' style='background-color: #ff6f00; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;'>🛒 Get this deal on Fanatical</a></p>
+]]></content:encoded>
+      <guid>fanatical--1752520774</guid>
+      <pubDate>Mon, 14 Jul 2025 19:19:34 +0000</pubDate>
     </item>
   </channel>
 </rss>
