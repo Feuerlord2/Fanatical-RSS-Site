@@ -844,6 +844,13 @@ func determineBundleCategory(apiBundle FanaticalAPIBundle) string {
 	displayType := strings.ToLower(apiBundle.DisplayType)
 	bundleType := strings.ToLower(apiBundle.Type)
 	
+	// Debug logging für bessere Diagnose
+	log.WithFields(log.Fields{
+		"bundle_name":    apiBundle.Name,
+		"display_type":   apiBundle.DisplayType,
+		"bundle_type":    apiBundle.Type,
+	}).Debug("Determining bundle category")
+	
 	// Check display type first (most reliable)
 	if strings.Contains(displayType, "book") {
 		return "books"
@@ -860,18 +867,36 @@ func determineBundleCategory(apiBundle FanaticalAPIBundle) string {
 		return "software"
 	}
 	
-	// Check bundle name for category hints
+	// ERWEITERTE Check bundle name for category hints
 	if strings.Contains(name, "book") || 
 	   strings.Contains(name, "rpg") || 
 	   strings.Contains(name, "tabletop") ||
 	   strings.Contains(name, "certification") ||
-	   strings.Contains(name, "learning") {
+	   strings.Contains(name, "learning") ||
+	   strings.Contains(name, "elearning") ||
+	   strings.Contains(name, "training") ||
+	   strings.Contains(name, "course") ||
+	   strings.Contains(name, "security and cloud certification") ||
+	   strings.Contains(name, "business security") ||
+	   strings.Contains(name, "cloud computing") ||
+	   strings.Contains(name, "machine learning and ai") ||
+	   strings.Contains(name, "c# and.net development") ||
+	   strings.Contains(name, "python computing") ||
+	   strings.Contains(name, "graphics and design") ||
+	   strings.Contains(name, "business computing") ||
+	   strings.Contains(name, "cisco network certification") ||
+	   strings.Contains(name, "robotics") ||
+	   strings.Contains(name, "your digital life") {
 		return "books"
 	}
 	
 	if strings.Contains(name, "software") || 
 	   strings.Contains(name, "app") ||
-	   strings.Contains(name, "development") {
+	   strings.Contains(name, "development") ||
+	   strings.Contains(name, "programming") ||
+	   strings.Contains(name, "coding") ||
+	   strings.Contains(name, "excel") ||
+	   strings.Contains(name, "zenva") {
 		return "software"
 	}
 	
