@@ -449,7 +449,7 @@ func convertPickAndMixToBundle(pnm PickAndMixBundle) FanaticalAPIBundle {
 		ProductID:       pnm.ID,
 		Name:            pnm.Name,
 		Slug:            pnm.Slug,
-		Type:            pnm.Type,
+		Type:            "pick-and-mix", // WICHTIG: Setze korrekten Typ
 		DisplayType:     pnm.Type,
 		Cover:           pnm.CoverImage,
 		OnSale:          true,
@@ -554,12 +554,26 @@ func convertAPIBundlesToInternal(apiBundles []FanaticalAPIBundle) []FanaticalBun
 		
 		// Determine URL based on type
 		var url string
-		if apiBundle.Type == "pick-and-mix" || apiBundle.Type == "book-bundle" {
+		switch apiBundle.Type {
+		case "pick-and-mix":
 			url = fmt.Sprintf("/en/pick-and-mix/%s", apiBundle.Slug)
-		} else if apiBundle.Type == "game" {
+		case "book-bundle":
+			url = fmt.Sprintf("/en/pick-and-mix/%s", apiBundle.Slug)
+		case "elearning-bundle":
+			url = fmt.Sprintf("/en/pick-and-mix/%s", apiBundle.Slug)
+		case "software-bundle":
+			url = fmt.Sprintf("/en/pick-and-mix/%s", apiBundle.Slug)
+		case "game":
 			url = fmt.Sprintf("/en/game/%s", apiBundle.Slug)
-		} else {
+		case "bundle":
 			url = fmt.Sprintf("/en/bundle/%s", apiBundle.Slug)
+		default:
+			// Fallback: versuche herauszufinden basierend auf dem Slug
+			if strings.Contains(apiBundle.Slug, "build-your-own") || strings.Contains(apiBundle.Slug, "bundle") {
+				url = fmt.Sprintf("/en/pick-and-mix/%s", apiBundle.Slug)
+			} else {
+				url = fmt.Sprintf("/en/bundle/%s", apiBundle.Slug)
+			}
 		}
 		
 		bundle := FanaticalBundle{
