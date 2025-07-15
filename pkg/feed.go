@@ -292,14 +292,30 @@ func updateCategory(wg *sync.WaitGroup, category string) {
 
 	log.WithField("category", category).Info("Fetching data from Fanatical APIs")
 	
-	// Fetch from new /api/all/de endpoint
-	bundles, err := fetchBundlesFromNewAPI()
+	var allBundles []FanaticalBundle
+	
+	// Fetch from /api/all/de (Pick-and-Mix + StarDeals)
+	newApiBundles, err := fetchBundlesFromNewAPI()
 	if err != nil {
 		log.WithFields(log.Fields{
 			"category": category,
 			"error":    err.Error(),
-		}).Error("Failed to fetch bundles from new API")
-		bundles = []FanaticalBundle{}
+		}).Error("Failed to fetch bundles from /api/all/de")
+	} else {
+		allBundles = append(allBundles, newApiBundles...)
+		log.WithField("new_api_bundles", len(newApiBundles)).Info("Added bundles from /api/all/de")
+	}
+	
+	// Fetch from algolia API (normale Bundles) - mit Compression-Fix
+	algoliaApiBundles, err := fetchBundlesFromAlgoliaAPI()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"category": category,
+			"error":    err.Error(),
+		}).Error("Failed to fetch bundles from algolia API")
+	} else {
+		allBundles = append(allBundles, algoliaApiBundles...)
+		log.WithField("algolia_bundles", len(algoliaApiBundles)).Info("Added bundles from algolia API")
 	}
 
 	// Also fetch promotions
@@ -312,12 +328,15 @@ func updateCategory(wg *sync.WaitGroup, category string) {
 	} else {
 		// Convert promotions to bundles and add them
 		promotionBundles := convertPromotionsToBundles(promotions, category)
-		bundles = append(bundles, promotionBundles...)
+		allBundles = append(allBundles, promotionBundles...)
+		log.WithField("promotion_bundles", len(promotionBundles)).Info("Added promotion bundles")
 	}
+	
+	log.WithField("total_bundles_before_filter", len(allBundles)).Info("Total bundles collected from all APIs")
 	
 	// Filter bundles by category
 	var filteredBundles []FanaticalBundle
-	for _, bundle := range bundles {
+	for _, bundle := range allBundles {
 		if shouldIncludeBundle(bundle, category) {
 			filteredBundles = append(filteredBundles, bundle)
 		}
@@ -325,7 +344,7 @@ func updateCategory(wg *sync.WaitGroup, category string) {
 	
 	log.WithFields(log.Fields{
 		"category": category,
-		"total":    len(bundles),
+		"total":    len(allBundles),
 		"filtered": len(filteredBundles),
 	}).Info("Bundle filtering completed")
 	
@@ -386,7 +405,7 @@ func fetchBundlesFromNewAPI() ([]FanaticalBundle, error) {
 	}
 	defer resp.Body.Close()
 	
-	log.WithField("status", resp.StatusCode).Info("New API response received")
+	log.WithField("status", resp.StatusCode).Info("New API (/api/all/de) response received")
 	
 	if resp.StatusCode != 200 {
 		// Lese Body für bessere Fehlerdiagnose
@@ -416,9 +435,77 @@ func fetchBundlesFromNewAPI() ([]FanaticalBundle, error) {
 		allBundles = append(allBundles, bundle)
 	}
 	
-	log.WithField("bundles", len(allBundles)).Info("Successfully fetched bundles from new API")
+	log.WithField("bundles", len(allBundles)).Info("Successfully fetched bundles from /api/all/de")
 	
 	return convertAPIBundlesToInternal(allBundles), nil
+}
+
+// ERWEITERTE Funktion für algolia API mit Compression-Fix
+func fetchBundlesFromAlgoliaAPI() ([]FanaticalBundle, error) {
+	url := "https://www.fanatical.com/api/algolia/bundles?altRank=false"
+	
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	// Add headers to appear like a real browser - OHNE Accept-Encoding!
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	// WICHTIG: Keine Accept-Encoding Header! Das verhindert Compression
+	req.Header.Set("Connection", "keep-alive")
+	req.Header.Set("Referer", "https://www.fanatical.com/en/bundles")
+	req.Header.Set("Sec-Fetch-Dest", "empty")
+	req.Header.Set("Sec-Fetch-Mode", "cors")
+	req.Header.Set("Sec-Fetch-Site", "same-origin")
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch algolia API: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	log.WithField("status", resp.StatusCode).Info("Algolia API response received")
+	
+	if resp.StatusCode != 200 {
+		// Lese Body für bessere Fehlerdiagnose
+		body, _ := io.ReadAll(resp.Body)
+		log.WithFields(log.Fields{
+			"status": resp.StatusCode,
+			"body":   string(body)[:min(200, len(body))], // Nur erste 200 Zeichen
+		}).Error("Algolia API returned non-200 status")
+		return nil, fmt.Errorf("algolia API returned status %d", resp.StatusCode)
+	}
+	
+	var apiBundles []FanaticalAPIBundle
+	if err := json.NewDecoder(resp.Body).Decode(&apiBundles); err != nil {
+		// Bei JSON-Fehler: Versuche Body zu lesen für Debugging
+		resp.Body.Close()
+		
+		// Neuer Request für Body-Debugging
+		resp2, err2 := client.Do(req)
+		if err2 == nil {
+			body, _ := io.ReadAll(resp2.Body)
+			resp2.Body.Close()
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+				"body_preview": string(body)[:min(200, len(body))],
+				"content_type": resp.Header.Get("Content-Type"),
+				"content_encoding": resp.Header.Get("Content-Encoding"),
+			}).Error("Algolia API JSON decode failed")
+		}
+		
+		return nil, fmt.Errorf("failed to decode algolia API response: %w", err)
+	}
+	
+	log.WithField("bundles", len(apiBundles)).Info("Successfully fetched bundles from algolia API")
+	
+	return convertAPIBundlesToInternal(apiBundles), nil
 }
 
 // Helper function für Go 1.20
@@ -917,16 +1004,31 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 	
 	switch targetCategory {
 	case "books":
-		shouldInclude := strings.Contains(title, "book") || 
-		       strings.Contains(title, "rpg") ||
-		       strings.Contains(title, "tabletop") ||
-		       strings.Contains(description, "book") ||
-		       strings.Contains(description, "rpg") ||
-		       strings.Contains(title, "certification") ||
+		// WICHTIG: Explizit Gaming-bezogene RPG Bundles ausschließen!
+		if strings.Contains(title, "rpg and fantasy") || 
+		   strings.Contains(title, "game") ||
+		   strings.Contains(title, "gaming") {
+			return false // Das sind Games, nicht Books!
+		}
+		
+		shouldInclude := strings.Contains(title, "certification") ||
 		       strings.Contains(title, "learning") ||
 		       strings.Contains(title, "elearning") ||
 		       strings.Contains(title, "training") ||
-		       strings.Contains(title, "course")
+		       strings.Contains(title, "course") ||
+		       strings.Contains(title, "development") && !strings.Contains(title, "game") || // Software Development, aber nicht Game Development
+		       strings.Contains(title, "programming") ||
+		       strings.Contains(title, "coding") ||
+		       strings.Contains(title, "security") ||
+		       strings.Contains(title, "cloud") ||
+		       strings.Contains(title, "machine learning") ||
+		       strings.Contains(title, "python") && !strings.Contains(title, "game") ||
+		       strings.Contains(title, "c#") ||
+		       strings.Contains(title, "graphics and design") ||
+		       strings.Contains(title, "business computing") ||
+		       strings.Contains(title, "network") ||
+		       strings.Contains(title, "robotics") ||
+		       strings.Contains(title, "digital life")
 		       
 		if shouldInclude {
 			log.WithField("bundle_title", bundle.Title).Info("BOOKS: Bundle matched!")
@@ -934,13 +1036,21 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		return shouldInclude
 		
 	case "games":
-		shouldInclude := !strings.Contains(title, "book") && 
-		       !strings.Contains(title, "software") &&
-		       !strings.Contains(title, "certification") &&
+		shouldInclude := !strings.Contains(title, "certification") && 
 		       !strings.Contains(title, "learning") &&
 		       !strings.Contains(title, "training") &&
+		       !strings.Contains(title, "course") &&
+		       !strings.Contains(title, "software") &&
 		       (bundleCategory == "games" || 
 		        strings.Contains(title, "game") || 
+		        strings.Contains(title, "rpg") || // RPG ist normalerweise Gaming
+		        strings.Contains(title, "fantasy") ||
+		        strings.Contains(title, "strategy") ||
+		        strings.Contains(title, "capcom") ||
+		        strings.Contains(title, "brutal") ||
+		        strings.Contains(title, "chillout") ||
+		        strings.Contains(title, "favorites") ||
+		        strings.Contains(title, "point and click") ||
 		        strings.Contains(title, "steam") ||
 		        strings.Contains(description, "game") ||
 		        strings.Contains(title, "voucher") ||
@@ -954,9 +1064,8 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		       strings.Contains(title, "app") ||
 		       strings.Contains(description, "software") ||
 		       strings.Contains(description, "app") ||
-		       strings.Contains(title, "development") ||
-		       strings.Contains(title, "programming") ||
-		       strings.Contains(title, "coding")
+		       strings.Contains(title, "excel") ||
+		       strings.Contains(title, "zenva")
 		       
 		if shouldInclude {
 			log.WithField("bundle_title", bundle.Title).Info("SOFTWARE: Bundle matched!")
