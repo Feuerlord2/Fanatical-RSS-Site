@@ -16,7 +16,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// API Response structures for bundles API
+// Neue API Response Struktur für /api/all/de
+type FanaticalAllResponse struct {
+	StarDeal         *FanaticalAPIBundle   `json:"stardeal"`
+	PickAndMix       []PickAndMixBundle    `json:"pickandmix"`
+	LiveDisplayTypes map[string]int        `json:"liveDisplayTypes"`
+	Images           []interface{}         `json:"images"`
+	// Weitere Felder falls nötig
+}
+
+// Bestehende Struktur für einzelne Bundle-Items
 type FanaticalAPIBundle struct {
 	ProductID       string            `json:"product_id"`
 	SKU             string            `json:"sku"`
@@ -43,10 +52,38 @@ type FanaticalAPIBundle struct {
 	DLCTotal        int               `json:"dlc_total"`
 	BundleCovers    []BundleGame      `json:"bundle_covers"`
 	PNMSaving       int               `json:"pnm_saving"`
-	// Neue Felder basierend auf deinem JSON
 	OperatingSystems []string         `json:"operating_systems"`
 	Features         []string         `json:"features"`
 	Categories       []string         `json:"categories"`
+	// Neue Felder aus dem JSON
+	SDescs          map[string]string `json:"sdescs"`
+	Screenshots     []string          `json:"screenshots"`
+}
+
+// Pick-and-Mix Bundle Struktur
+type PickAndMixBundle struct {
+	ID          string                 `json:"_id"`
+	Name        string                 `json:"name"`
+	Slug        string                 `json:"slug"`
+	CoverImage  string                 `json:"cover_image"`
+	SKU         string                 `json:"sku"`
+	Type        string                 `json:"type"`
+	ValidFrom   string                 `json:"valid_from"`
+	ValidUntil  string                 `json:"valid_until"`
+	Tiers       []PickAndMixTier       `json:"tiers"`
+	Products    []PickAndMixProduct    `json:"products"`
+}
+
+type PickAndMixTier struct {
+	Quantity int                   `json:"quantity"`
+	Price    map[string]float64    `json:"price"`
+}
+
+type PickAndMixProduct struct {
+	ID    string `json:"_id"`
+	Name  string `json:"name"`
+	Slug  string `json:"slug"`
+	Cover string `json:"cover"`
 }
 
 type BundleGame struct {
@@ -59,7 +96,7 @@ type BundleGame struct {
 	Price            map[string]float64 `json:"price"`
 }
 
-// API Response structures for promotions API
+// Bestehende Strukturen für Promotions (unverändert)
 type PromotionsResponse struct {
 	SaleRecords  []interface{}      `json:"saleRecords"`
 	FreeProducts []FreeProduct      `json:"freeProducts"`
@@ -172,7 +209,6 @@ func createFeed(bundles []FanaticalBundle, category string) (feeds.Feed, error) 
 	return feed, nil
 }
 
-// Neue Funktion für verbesserten Titel
 func createEnhancedTitle(bundle FanaticalBundle) string {
 	var titleParts []string
 	
@@ -201,7 +237,6 @@ func createEnhancedTitle(bundle FanaticalBundle) string {
 	return strings.Join(titleParts, " ")
 }
 
-// Neue Funktion für reicheren Content
 func createRichContent(bundle FanaticalBundle) string {
 	var content strings.Builder
 	
@@ -257,16 +292,17 @@ func updateCategory(wg *sync.WaitGroup, category string) {
 
 	log.WithField("category", category).Info("Fetching data from Fanatical APIs")
 	
-	// Fetch from both APIs
-	bundles, err := fetchBundlesFromAPI()
+	// Fetch from new /api/all/de endpoint
+	bundles, err := fetchBundlesFromNewAPI()
 	if err != nil {
 		log.WithFields(log.Fields{
 			"category": category,
 			"error":    err.Error(),
-		}).Error("Failed to fetch bundles from API")
+		}).Error("Failed to fetch bundles from new API")
 		bundles = []FanaticalBundle{}
 	}
 
+	// Also fetch promotions
 	promotions, err := fetchPromotionsFromAPI()
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -321,8 +357,9 @@ func updateCategory(wg *sync.WaitGroup, category string) {
 	}
 }
 
-func fetchBundlesFromAPI() ([]FanaticalBundle, error) {
-	url := "https://www.fanatical.com/api/algolia/bundles?altRank=false"
+// NEUE Funktion für /api/all/de
+func fetchBundlesFromNewAPI() ([]FanaticalBundle, error) {
+	url := "https://www.fanatical.com/api/all/de"
 	
 	client := &http.Client{
 		Timeout: 30 * time.Second,
@@ -337,7 +374,6 @@ func fetchBundlesFromAPI() ([]FanaticalBundle, error) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "application/json, text/plain, */*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Referer", "https://www.fanatical.com/en/bundles")
 	req.Header.Set("Sec-Fetch-Dest", "empty")
@@ -346,11 +382,11 @@ func fetchBundlesFromAPI() ([]FanaticalBundle, error) {
 	
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch bundles API: %w", err)
+		return nil, fmt.Errorf("failed to fetch new API: %w", err)
 	}
 	defer resp.Body.Close()
 	
-	log.WithField("status", resp.StatusCode).Info("Bundles API response received")
+	log.WithField("status", resp.StatusCode).Info("New API response received")
 	
 	if resp.StatusCode != 200 {
 		// Lese Body für bessere Fehlerdiagnose
@@ -358,18 +394,31 @@ func fetchBundlesFromAPI() ([]FanaticalBundle, error) {
 		log.WithFields(log.Fields{
 			"status": resp.StatusCode,
 			"body":   string(body)[:min(500, len(body))],
-		}).Error("API returned non-200 status")
-		return nil, fmt.Errorf("bundles API returned status %d", resp.StatusCode)
+		}).Error("New API returned non-200 status")
+		return nil, fmt.Errorf("new API returned status %d", resp.StatusCode)
 	}
 	
-	var apiBundles []FanaticalAPIBundle
-	if err := json.NewDecoder(resp.Body).Decode(&apiBundles); err != nil {
-		return nil, fmt.Errorf("failed to decode bundles API response: %w", err)
+	var apiResponse FanaticalAllResponse
+	if err := json.NewDecoder(resp.Body).Decode(&apiResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode new API response: %w", err)
 	}
 	
-	log.WithField("bundles", len(apiBundles)).Info("Successfully fetched bundles from API")
+	var allBundles []FanaticalAPIBundle
 	
-	return convertAPIBundlesToInternal(apiBundles), nil
+	// Add StarDeal if available
+	if apiResponse.StarDeal != nil {
+		allBundles = append(allBundles, *apiResponse.StarDeal)
+	}
+	
+	// Convert PickAndMix bundles
+	for _, pnm := range apiResponse.PickAndMix {
+		bundle := convertPickAndMixToBundle(pnm)
+		allBundles = append(allBundles, bundle)
+	}
+	
+	log.WithField("bundles", len(allBundles)).Info("Successfully fetched bundles from new API")
+	
+	return convertAPIBundlesToInternal(allBundles), nil
 }
 
 // Helper function für Go 1.20
@@ -380,8 +429,42 @@ func min(a, b int) int {
 	return b
 }
 
+// Konvertiere PickAndMix zu Standard Bundle Format
+func convertPickAndMixToBundle(pnm PickAndMixBundle) FanaticalAPIBundle {
+	validFrom, _ := time.Parse(time.RFC3339, pnm.ValidFrom)
+	validUntil, _ := time.Parse(time.RFC3339, pnm.ValidUntil)
+	
+	// Nimm den günstigsten Tier-Preis
+	var minPrice float64 = 999999
+	for _, tier := range pnm.Tiers {
+		if usdPrice, exists := tier.Price["USD"]; exists && usdPrice < minPrice {
+			minPrice = usdPrice
+		}
+	}
+	
+	// Erstelle Fake-FullPrice (doppelter Preis für Discount-Berechnung)
+	fullPrice := minPrice * 2
+	
+	return FanaticalAPIBundle{
+		ProductID:       pnm.ID,
+		Name:            pnm.Name,
+		Slug:            pnm.Slug,
+		Type:            pnm.Type,
+		DisplayType:     pnm.Type,
+		Cover:           pnm.CoverImage,
+		OnSale:          true,
+		ValidFrom:       validFrom.Unix(),
+		ValidUntil:      validUntil.Unix(),
+		Price:           map[string]float64{"USD": minPrice},
+		FullPrice:       map[string]float64{"USD": fullPrice},
+		DiscountPercent: 50, // Standard Discount für PickAndMix
+		GameTotal:       len(pnm.Products),
+	}
+}
+
+// Bestehende Funktionen (unverändert)
 func fetchPromotionsFromAPI() (*PromotionsResponse, error) {
-	url := "https://www.fanatical.com/api/all-promotions/en"
+	url := "https://www.fanatical.com/api/all-promotions/de"
 	
 	client := &http.Client{
 		Timeout: 30 * time.Second,
@@ -396,7 +479,6 @@ func fetchPromotionsFromAPI() (*PromotionsResponse, error) {
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "application/json, text/plain, */*")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Referer", "https://www.fanatical.com/en/bundles")
 	req.Header.Set("Sec-Fetch-Dest", "empty")
@@ -470,11 +552,21 @@ func convertAPIBundlesToInternal(apiBundles []FanaticalAPIBundle) []FanaticalBun
 		// Create enhanced description
 		description := createEnhancedBundleDescription(apiBundle)
 		
+		// Determine URL based on type
+		var url string
+		if apiBundle.Type == "pick-and-mix" || apiBundle.Type == "book-bundle" {
+			url = fmt.Sprintf("/en/pick-and-mix/%s", apiBundle.Slug)
+		} else if apiBundle.Type == "game" {
+			url = fmt.Sprintf("/en/game/%s", apiBundle.Slug)
+		} else {
+			url = fmt.Sprintf("/en/bundle/%s", apiBundle.Slug)
+		}
+		
 		bundle := FanaticalBundle{
 			ID:          apiBundle.ProductID,
 			Title:       apiBundle.Name,
 			Description: description,
-			URL:         fmt.Sprintf("/en/bundle/%s", apiBundle.Slug),
+			URL:         url,
 			Slug:        apiBundle.Slug,
 			Category:    determineBundleCategory(apiBundle),
 			StartDate:   time.Unix(apiBundle.ValidFrom, 0),
@@ -505,7 +597,7 @@ func convertAPIBundlesToInternal(apiBundles []FanaticalAPIBundle) []FanaticalBun
 	return bundles
 }
 
-// Verbesserte Bundle-Beschreibung basierend auf deinem JSON
+// Verbesserte Bundle-Beschreibung
 func createEnhancedBundleDescription(apiBundle FanaticalAPIBundle) string {
 	parts := []string{}
 	
@@ -519,6 +611,12 @@ func createEnhancedBundleDescription(apiBundle FanaticalAPIBundle) string {
 		if apiBundle.StarDeal {
 			parts = append(parts, "⭐ Star Deal")
 		}
+	case "book-bundle":
+		parts = append(parts, "📚 Book Bundle")
+	case "elearning-bundle":
+		parts = append(parts, "🎓 Learning Bundle")
+	case "software-bundle":
+		parts = append(parts, "💻 Software Bundle")
 	}
 	
 	// Game/DLC count
@@ -548,9 +646,20 @@ func createEnhancedBundleDescription(apiBundle FanaticalAPIBundle) string {
 		parts = append(parts, fmt.Sprintf("DRM: %s", strings.Join(apiBundle.DRM, ", ")))
 	}
 	
-	// Operating systems (aus deinem JSON)
+	// Operating systems
 	if len(apiBundle.OperatingSystems) > 0 {
 		parts = append(parts, fmt.Sprintf("OS: %s", strings.Join(apiBundle.OperatingSystems, ", ")))
+	}
+	
+	// Use German description if available
+	if len(apiBundle.SDescs) > 0 {
+		if germanDesc, exists := apiBundle.SDescs["de"]; exists && germanDesc != "" {
+			// Nehme die ersten 100 Zeichen der deutschen Beschreibung
+			if len(germanDesc) > 100 {
+				germanDesc = germanDesc[:100] + "..."
+			}
+			parts = append(parts, germanDesc)
+		}
 	}
 	
 	if len(parts) == 0 {
@@ -560,7 +669,7 @@ func createEnhancedBundleDescription(apiBundle FanaticalAPIBundle) string {
 	return strings.Join(parts, " • ")
 }
 
-// Rest der Funktionen bleibt unverändert...
+// Alle anderen Funktionen bleiben unverändert...
 func convertPromotionsToBundles(promotions *PromotionsResponse, category string) []FanaticalBundle {
 	var bundles []FanaticalBundle
 	
