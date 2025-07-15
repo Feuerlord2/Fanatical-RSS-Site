@@ -887,6 +887,16 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 	bundleCategory := strings.ToLower(bundle.Category)
 	targetCategory := strings.ToLower(category)
 	
+	// DEBUG: Log bundle info für problematische Kategorien
+	if targetCategory == "books" || targetCategory == "software" {
+		log.WithFields(log.Fields{
+			"bundle_title":    bundle.Title,
+			"bundle_category": bundleCategory,
+			"target_category": targetCategory,
+			"bundle_type":     strings.ToLower(bundle.Type),
+		}).Info("Checking bundle for category")
+	}
+	
 	// Direct category match
 	if bundleCategory == targetCategory {
 		return true
@@ -898,27 +908,52 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 	
 	switch targetCategory {
 	case "books":
-		return strings.Contains(title, "book") || 
+		shouldInclude := strings.Contains(title, "book") || 
 		       strings.Contains(title, "rpg") ||
 		       strings.Contains(title, "tabletop") ||
 		       strings.Contains(description, "book") ||
 		       strings.Contains(description, "rpg") ||
 		       strings.Contains(title, "certification") ||
-		       strings.Contains(title, "learning")
+		       strings.Contains(title, "learning") ||
+		       strings.Contains(title, "elearning") ||
+		       strings.Contains(title, "training") ||
+		       strings.Contains(title, "course")
+		       
+		if shouldInclude {
+			log.WithField("bundle_title", bundle.Title).Info("BOOKS: Bundle matched!")
+		}
+		return shouldInclude
+		
 	case "games":
-		return !strings.Contains(title, "book") && 
+		shouldInclude := !strings.Contains(title, "book") && 
 		       !strings.Contains(title, "software") &&
-		       !strings.Contains(title, "rpg") &&
+		       !strings.Contains(title, "certification") &&
+		       !strings.Contains(title, "learning") &&
+		       !strings.Contains(title, "training") &&
 		       (bundleCategory == "games" || 
 		        strings.Contains(title, "game") || 
 		        strings.Contains(title, "steam") ||
 		        strings.Contains(description, "game") ||
-		        strings.Contains(title, "voucher"))
+		        strings.Contains(title, "voucher") ||
+		        bundleCategory == "" || // Fallback für unbekannte Kategorien
+		        bundle.Category == "") // Leere Kategorie = wahrscheinlich Games
+		        
+		return shouldInclude
+		
 	case "software":
-		return strings.Contains(title, "software") ||
+		shouldInclude := strings.Contains(title, "software") ||
 		       strings.Contains(title, "app") ||
 		       strings.Contains(description, "software") ||
-		       strings.Contains(description, "app")
+		       strings.Contains(description, "app") ||
+		       strings.Contains(title, "development") ||
+		       strings.Contains(title, "programming") ||
+		       strings.Contains(title, "coding")
+		       
+		if shouldInclude {
+			log.WithField("bundle_title", bundle.Title).Info("SOFTWARE: Bundle matched!")
+		}
+		return shouldInclude
+		
 	default:
 		return true
 	}
