@@ -929,19 +929,31 @@ func getPrice(priceMap map[string]float64, preferredCurrency string) float64 {
 func determineBundleCategory(apiBundle FanaticalAPIBundle) string {
 	name := strings.ToLower(apiBundle.Name)
 	bundleType := strings.ToLower(apiBundle.Type)
+	displayType := strings.ToLower(apiBundle.DisplayType)
 	
 	// Debug logging für bessere Diagnose
 	log.WithFields(log.Fields{
 		"bundle_name":    apiBundle.Name,
 		"bundle_type":    apiBundle.Type,
+		"display_type":   apiBundle.DisplayType,
 	}).Debug("Determining bundle category")
 	
-	// Check bundle type FIRST (most reliable based on real API data)
+	// Check display_type FIRST (most reliable based on real API data)
+	switch displayType {
+	case "book-bundle":
+		return "books"
+	case "elearning-bundle":
+		return "software"  // eLearning = Software/Training, nicht Books!
+	case "software-bundle":
+		return "software"
+	}
+	
+	// Check bundle type as fallback
 	switch bundleType {
 	case "book-bundle":
 		return "books"
 	case "elearning-bundle":
-		return "books"
+		return "software"  // eLearning = Software
 	case "software-bundle":
 		return "software"
 	case "bundle":
