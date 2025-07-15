@@ -841,13 +841,11 @@ func getPrice(priceMap map[string]float64, preferredCurrency string) float64 {
 
 func determineBundleCategory(apiBundle FanaticalAPIBundle) string {
 	name := strings.ToLower(apiBundle.Name)
-	displayType := strings.ToLower(apiBundle.DisplayType)
 	bundleType := strings.ToLower(apiBundle.Type)
 	
 	// Debug logging für bessere Diagnose
 	log.WithFields(log.Fields{
 		"bundle_name":    apiBundle.Name,
-		"display_type":   apiBundle.DisplayType,
 		"bundle_type":    apiBundle.Type,
 	}).Debug("Determining bundle category")
 	
