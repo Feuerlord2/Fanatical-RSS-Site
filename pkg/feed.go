@@ -212,15 +212,7 @@ func createFeed(bundles []FanaticalBundle, category string) (feeds.Feed, error) 
 func createEnhancedTitle(bundle FanaticalBundle) string {
 	var titleParts []string
 	
-	// Emoji basierend auf Discount
-	if bundle.Price.Discount >= 90 {
-		titleParts = append(titleParts, "🔥")
-	} else if bundle.Price.Discount >= 75 {
-		titleParts = append(titleParts, "⚡")
-	} else if bundle.Price.Discount >= 50 {
-		titleParts = append(titleParts, "💥")
-	}
-	
+	// Kein Emoji mehr am Anfang!
 	titleParts = append(titleParts, bundle.Title)
 	
 	// Discount und Preis Info
@@ -720,9 +712,9 @@ func createEnhancedBundleDescription(apiBundle FanaticalAPIBundle) string {
 		parts = append(parts, "💻 Software Bundle")
 	}
 	
-	// Game/DLC count
+	// Game/DLC count - GEÄNDERT zu "items"
 	if apiBundle.GameTotal > 0 {
-		parts = append(parts, fmt.Sprintf("%d games", apiBundle.GameTotal))
+		parts = append(parts, fmt.Sprintf("%d items", apiBundle.GameTotal))
 	}
 	if apiBundle.DLCTotal > 0 {
 		parts = append(parts, fmt.Sprintf("%d DLC", apiBundle.DLCTotal))
@@ -764,7 +756,7 @@ func createEnhancedBundleDescription(apiBundle FanaticalAPIBundle) string {
 	}
 	
 	if len(parts) == 0 {
-		return "Great gaming content with amazing savings"
+		return "Great content with amazing savings"
 	}
 	
 	return strings.Join(parts, " • ")
