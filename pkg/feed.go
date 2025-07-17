@@ -1110,11 +1110,9 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		   strings.Contains(description, "app") ||
 		   strings.Contains(title, "excel") ||
 		   strings.Contains(title, "zenva") ||
-		   strings.Contains(title, "beats") ||      // Musik-Software
-		   strings.Contains(title, "vibes") ||      // Musik-Software
-		   strings.Contains(title, "music") ||      // Musik-Software
-		   strings.Contains(title, "audio") ||      // Audio-Software
-		   strings.Contains(title, "comic") ||      // Comics = Books
+		   strings.Contains(title, "beats and vibes") ||  // Spezifisch für das Bundle
+		   strings.Contains(title, "global beats") ||     // Spezifisch für das Bundle
+		   strings.Contains(title, "comic") ||            // Comics = Books
 		   strings.Contains(title, "collection") && strings.Contains(title, "comic") || // Comic Collections
 		   bundleCategory == "software" ||
 		   bundleCategory == "books" {
@@ -1145,11 +1143,9 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		       strings.Contains(description, "app") ||
 		       strings.Contains(title, "excel") ||
 		       strings.Contains(title, "zenva") ||
-		       strings.Contains(title, "beats") ||      // Musik-Software/Samples
-		       strings.Contains(title, "vibes") ||      // Musik-Software/Samples  
-		       strings.Contains(title, "music") ||      // Musik-Software
-		       strings.Contains(title, "audio") ||      // Audio-Software
-		       strings.Contains(title, "machine learning") || // ML = Software
+		       strings.Contains(title, "beats and vibes") ||    // Spezifisch für das Bundle
+		       strings.Contains(title, "global beats") ||       // Spezifisch für das Bundle
+		       strings.Contains(title, "machine learning") ||   // ML = Software
 		       (strings.Contains(title, "elearning") && bundleCategory == "software") // E-Learning Software
 		       
 		if shouldInclude {
