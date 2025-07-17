@@ -1078,6 +1078,8 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		       (strings.Contains(title, "elearning") && bundleCategory != "software") || // E-Learning nur wenn nicht bereits Software
 		       strings.Contains(title, "training") ||
 		       strings.Contains(title, "course") ||
+		       strings.Contains(title, "comic") ||      // Comics gehören zu Books
+		       strings.Contains(title, "collection") && strings.Contains(title, "comic") || // Comic Collections
 		       (strings.Contains(title, "development") && !strings.Contains(title, "game") && !strings.Contains(title, "software")) ||
 		       (strings.Contains(title, "programming") && bundleCategory != "software") ||
 		       (strings.Contains(title, "coding") && bundleCategory != "software") ||
@@ -1097,12 +1099,25 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		return shouldInclude
 		
 	case "games":
-		// Exclusions für Games
+		// WICHTIG: Software und Books-Bundles explizit ausschließen!
 		if strings.Contains(title, "certification") || 
 		   strings.Contains(title, "learning") ||
 		   strings.Contains(title, "training") ||
 		   strings.Contains(title, "course") ||
-		   strings.Contains(title, "software") {
+		   strings.Contains(title, "software") ||
+		   strings.Contains(title, "app") ||
+		   strings.Contains(description, "software") ||
+		   strings.Contains(description, "app") ||
+		   strings.Contains(title, "excel") ||
+		   strings.Contains(title, "zenva") ||
+		   strings.Contains(title, "beats") ||      // Musik-Software
+		   strings.Contains(title, "vibes") ||      // Musik-Software
+		   strings.Contains(title, "music") ||      // Musik-Software
+		   strings.Contains(title, "audio") ||      // Audio-Software
+		   strings.Contains(title, "comic") ||      // Comics = Books
+		   strings.Contains(title, "collection") && strings.Contains(title, "comic") || // Comic Collections
+		   bundleCategory == "software" ||
+		   bundleCategory == "books" {
 			return false
 		}
 		
