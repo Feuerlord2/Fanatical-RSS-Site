@@ -502,11 +502,16 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 	
 	switch targetCategory {
 	case "books":
+		// WICHTIG: Software-Bundles explizit ausschließen
+		if bundleCategory == "software" {
+			return false
+		}
+		
 		// Spezielle Titel-basierte Checks für Books
 		shouldInclude := strings.Contains(title, "certification") ||
-		       strings.Contains(title, "learning") ||
-		       strings.Contains(title, "training") ||
-		       strings.Contains(title, "course") ||
+		       (strings.Contains(title, "learning") && bundleCategory != "software") || // Learning nur wenn nicht bereits Software
+		       (strings.Contains(title, "training") && bundleCategory != "software") ||  // Training nur wenn nicht bereits Software
+		       (strings.Contains(title, "course") && bundleCategory != "software") ||    // Course nur wenn nicht bereits Software
 		       strings.Contains(title, "comic") ||
 		       strings.Contains(title, "collection") && strings.Contains(title, "comic")
 		       
