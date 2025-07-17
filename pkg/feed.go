@@ -1058,18 +1058,32 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 			return false
 		}
 		
+		// WICHTIG: Software-Bundles ausschließen (auch wenn sie "learning" enthalten)
+		if strings.Contains(title, "software") ||
+		   strings.Contains(title, "app") ||
+		   strings.Contains(description, "software") ||
+		   strings.Contains(description, "app") ||
+		   strings.Contains(title, "excel") ||
+		   strings.Contains(title, "zenva") ||
+		   strings.Contains(title, "beats") ||  // Musik-Software
+		   strings.Contains(title, "vibes") ||  // Musik-Software
+		   strings.Contains(title, "music") ||  // Musik-Software
+		   strings.Contains(title, "audio") ||  // Audio-Software
+		   bundleCategory == "software" {       // Direkte Kategorie-Zuordnung
+			return false
+		}
+		
 		shouldInclude := strings.Contains(title, "certification") ||
-		       strings.Contains(title, "learning") ||
-		       strings.Contains(title, "elearning") ||
+		       (strings.Contains(title, "learning") && !strings.Contains(title, "machine learning")) || // Machine Learning = Software
+		       (strings.Contains(title, "elearning") && bundleCategory != "software") || // E-Learning nur wenn nicht bereits Software
 		       strings.Contains(title, "training") ||
 		       strings.Contains(title, "course") ||
-		       (strings.Contains(title, "development") && !strings.Contains(title, "game")) ||
-		       strings.Contains(title, "programming") ||
-		       strings.Contains(title, "coding") ||
+		       (strings.Contains(title, "development") && !strings.Contains(title, "game") && !strings.Contains(title, "software")) ||
+		       (strings.Contains(title, "programming") && bundleCategory != "software") ||
+		       (strings.Contains(title, "coding") && bundleCategory != "software") ||
 		       strings.Contains(title, "security") ||
 		       strings.Contains(title, "cloud") ||
-		       strings.Contains(title, "machine learning") ||
-		       (strings.Contains(title, "python") && !strings.Contains(title, "game")) ||
+		       (strings.Contains(title, "python") && !strings.Contains(title, "game") && bundleCategory != "software") ||
 		       strings.Contains(title, "c#") ||
 		       strings.Contains(title, "graphics and design") ||
 		       strings.Contains(title, "business computing") ||
@@ -1109,12 +1123,19 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		return shouldInclude
 		
 	case "software":
-		shouldInclude := strings.Contains(title, "software") ||
+		shouldInclude := bundleCategory == "software" ||  // Direkte Kategorie-Zuordnung hat Priorität
+		       strings.Contains(title, "software") ||
 		       strings.Contains(title, "app") ||
 		       strings.Contains(description, "software") ||
 		       strings.Contains(description, "app") ||
 		       strings.Contains(title, "excel") ||
-		       strings.Contains(title, "zenva")
+		       strings.Contains(title, "zenva") ||
+		       strings.Contains(title, "beats") ||      // Musik-Software/Samples
+		       strings.Contains(title, "vibes") ||      // Musik-Software/Samples  
+		       strings.Contains(title, "music") ||      // Musik-Software
+		       strings.Contains(title, "audio") ||      // Audio-Software
+		       strings.Contains(title, "machine learning") || // ML = Software
+		       (strings.Contains(title, "elearning") && bundleCategory == "software") // E-Learning Software
 		       
 		if shouldInclude {
 			log.WithField("bundle_title", bundle.Title).Info("SOFTWARE: Bundle matched!")
@@ -1127,28 +1148,38 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		
 		// Test für Books
 		wouldBeBooks := (bundleCategory == "books") ||
-		               (strings.Contains(title, "certification") ||
-		                strings.Contains(title, "learning") ||
-		                strings.Contains(title, "elearning") ||
+		               ((strings.Contains(title, "certification") ||
+		                (strings.Contains(title, "learning") && !strings.Contains(title, "machine learning")) ||
+		                (strings.Contains(title, "elearning") && bundleCategory != "software") ||
 		                strings.Contains(title, "training") ||
 		                strings.Contains(title, "course") ||
-		                (strings.Contains(title, "development") && !strings.Contains(title, "game")) ||
-		                strings.Contains(title, "programming") ||
-		                strings.Contains(title, "coding") ||
+		                (strings.Contains(title, "development") && !strings.Contains(title, "game") && !strings.Contains(title, "software")) ||
+		                (strings.Contains(title, "programming") && bundleCategory != "software") ||
+		                (strings.Contains(title, "coding") && bundleCategory != "software") ||
 		                strings.Contains(title, "security") ||
 		                strings.Contains(title, "cloud") ||
-		                strings.Contains(title, "machine learning") ||
-		                (strings.Contains(title, "python") && !strings.Contains(title, "game")) ||
+		                (strings.Contains(title, "python") && !strings.Contains(title, "game") && bundleCategory != "software") ||
 		                strings.Contains(title, "c#") ||
 		                strings.Contains(title, "graphics and design") ||
 		                strings.Contains(title, "business computing") ||
 		                strings.Contains(title, "network") ||
 		                strings.Contains(title, "robotics") ||
 		                strings.Contains(title, "digital life")) &&
-		               // ABER nicht wenn es Gaming-Content ist
+		               // ABER nicht wenn es Gaming-Content oder Software ist
 		               !(strings.Contains(title, "rpg and fantasy") || 
 		                 strings.Contains(title, "game") ||
-		                 strings.Contains(title, "gaming"))
+		                 strings.Contains(title, "gaming") ||
+		                 strings.Contains(title, "software") ||
+		                 strings.Contains(title, "app") ||
+		                 strings.Contains(description, "software") ||
+		                 strings.Contains(description, "app") ||
+		                 strings.Contains(title, "excel") ||
+		                 strings.Contains(title, "zenva") ||
+		                 strings.Contains(title, "beats") ||
+		                 strings.Contains(title, "vibes") ||
+		                 strings.Contains(title, "music") ||
+		                 strings.Contains(title, "audio") ||
+		                 bundleCategory == "software"))
 		
 		// Test für Games
 		wouldBeGames := (bundleCategory == "games" ||
@@ -1178,7 +1209,13 @@ func shouldIncludeBundle(bundle FanaticalBundle, category string) bool {
 		                  strings.Contains(description, "software") ||
 		                  strings.Contains(description, "app") ||
 		                  strings.Contains(title, "excel") ||
-		                  strings.Contains(title, "zenva")
+		                  strings.Contains(title, "zenva") ||
+		                  strings.Contains(title, "beats") ||
+		                  strings.Contains(title, "vibes") ||
+		                  strings.Contains(title, "music") ||
+		                  strings.Contains(title, "audio") ||
+		                  strings.Contains(title, "machine learning") ||
+		                  (strings.Contains(title, "elearning") && bundleCategory == "software")
 		
 		// Fallback NUR wenn es in KEINE der anderen Kategorien passt
 		shouldInclude := !wouldBeBooks && !wouldBeGames && !wouldBeSoftware
