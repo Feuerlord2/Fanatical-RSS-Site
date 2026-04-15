@@ -1,0 +1,13 @@
+module github.com/Feuerlord2/Fanatical-RSS-Site
+
+go 1.20
+
+require (
+	github.com/gorilla/feeds v1.1.1
+	github.com/sirupsen/logrus v1.9.0
+)
+
+require (
+	github.com/kr/pretty v0.3.1 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+)
