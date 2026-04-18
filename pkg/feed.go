@@ -80,7 +80,7 @@ func createFeed(bundles []FanaticalBundle, category string) feeds.Feed {
 		content := createRichContent(bundle)
 		title := bundle.Title // Nur der Bundle-Name
 
-		feed.Items[idx] = &feeds.Item{
+		item := &feeds.Item{
 			Title:       title,
 			Link:        &feeds.Link{Href: fmt.Sprintf("https://www.fanatical.com%s", bundle.URL)},
 			Content:     content,
@@ -88,6 +88,17 @@ func createFeed(bundles []FanaticalBundle, category string) feeds.Feed {
 			Description: bundle.Description,
 			Id:          fmt.Sprintf("fanatical-%s-%d", bundle.Slug, bundle.StartDate.Unix()),
 		}
+
+		// Add cover image as enclosure for Discord embed support
+		if bundle.Image != "" {
+			item.Enclosure = &feeds.Enclosure{
+				Url:    bundle.Image,
+				Type:   "image/jpeg",
+				Length: "0",
+			}
+		}
+
+		feed.Items[idx] = item
 	}
 
 	// Sort items so that latest bundles are on the top
@@ -100,7 +111,12 @@ func createFeed(bundles []FanaticalBundle, category string) feeds.Feed {
 
 func createRichContent(bundle FanaticalBundle) string {
 	var content strings.Builder
-	
+
+	// Cover image at the top
+	if bundle.Image != "" {
+		content.WriteString(fmt.Sprintf("<img src=\"%s\" alt=\"%s\" style=\"max-width: 100%%; border-radius: 8px; margin-bottom: 10px;\" />\n", bundle.Image, bundle.Title))
+	}
+
 	content.WriteString(fmt.Sprintf("<h3>%s</h3>\n", bundle.Title))
 	content.WriteString(fmt.Sprintf("<p>%s</p>\n", bundle.Description))
 	
@@ -317,10 +333,17 @@ func convertAlgoliaBundlesToInternal(algoliBundles []AlgoliaBundle) []FanaticalB
 			url = fmt.Sprintf("/en/bundle/%s", algoliaBundle.Slug)
 		}
 		
+		// Build cover image URL (Fanatical uses imgix for product images)
+		coverImage := algoliaBundle.Cover
+		if coverImage != "" && !strings.HasPrefix(coverImage, "http") {
+			coverImage = "https://fanatical.imgix.net/product/original/" + coverImage
+		}
+
 		bundle := FanaticalBundle{
 			ID:          algoliaBundle.ProductID,
 			Title:       algoliaBundle.Name,
 			Description: description,
+			Image:       coverImage,
 			URL:         url,
 			Slug:        algoliaBundle.Slug,
 			Category:    determineBundleCategory(algoliaBundle),
