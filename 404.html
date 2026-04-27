@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 — Page Not Found | Fanatical RSS</title>
+  <meta name="description" content="The page you are looking for does not exist.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F97316' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 11a9 9 0 0 1 9 9'/%3E%3Cpath d='M4 4a16 16 0 0 1 16 16'/%3E%3Ccircle cx='5' cy='19' r='1'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Preloader -->
+  <div class="preloader" id="preloader">
+    <span class="preloader-text">Fanatical</span>
+    <div class="preloader-bar"></div>
+  </div>
+
+  <!-- Scene background layers -->
+  <div class="scene"></div>
+  <div class="diagonal-lines"></div>
+  <div class="scanline"></div>
+
+  <!-- Corner marks -->
+  <div class="corner-mark corner-mark--tl"></div>
+  <div class="corner-mark corner-mark--tr"></div>
+  <div class="corner-mark corner-mark--bl"></div>
+  <div class="corner-mark corner-mark--br"></div>
+
+  <!-- Page content -->
+  <div class="page">
+
+    <div class="error-code">404</div>
+    <h1 class="error-title">Page Not Found</h1>
+    <p class="error-desc">
+      The page you are looking for does not exist or has been moved. Head back to the main feed collection.
+    </p>
+    <a href="index.html" class="home-btn">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"/>
+        <polyline points="12 19 5 12 12 5"/>
+      </svg>
+      Back to Home
+    </a>
+
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* --- Preloader --- */
+      window.addEventListener('load', function () {
+        var preloader = document.getElementById('preloader');
+        if (preloader) {
+          setTimeout(function () {
+            preloader.classList.add('hidden');
+          }, 600);
+        }
+
+        /* --- Reveal elements --- */
+        requestAnimationFrame(function () {
+          var els = document.querySelectorAll(
+            '.error-code, .error-title, .error-desc, .home-btn'
+          );
+          for (var i = 0; i < els.length; i++) {
+            els[i].classList.add('revealed');
+          }
+        });
+      });
+    })();
+  </script>
+
+</body>
+</html>
