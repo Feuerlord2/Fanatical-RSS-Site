@@ -5,7 +5,6 @@ import (
 	"html"
 	"path"
 	"strings"
-	"time"
 )
 
 // createRichContent renders the HTML body of a feed item. All dynamic
@@ -50,15 +49,12 @@ func createRichContent(bundle FanaticalBundle) string {
 		currentPrice, originalPrice, bundle.Price.Discount, savingsText))
 	content.WriteString("</table>\n")
 
+	// No "time remaining" line here: it would be computed from the current
+	// time, making the generated XML differ on every run even when nothing
+	// changed — which would defeat the only-commit-on-real-changes behavior.
 	content.WriteString("<h4>⏰ Availability</h4>\n")
 	content.WriteString("<ul>\n")
 	content.WriteString(fmt.Sprintf("<li><strong>Ends:</strong> %s</li>\n", bundle.EndDate.UTC().Format("January 2, 2006 15:04 MST")))
-
-	if timeRemaining := time.Until(bundle.EndDate); timeRemaining > 0 {
-		days := int(timeRemaining.Hours() / 24)
-		hours := int(timeRemaining.Hours()) % 24
-		content.WriteString(fmt.Sprintf("<li><strong>Time Remaining:</strong> %d days, %d hours</li>\n", days, hours))
-	}
 	content.WriteString("</ul>\n")
 
 	content.WriteString(fmt.Sprintf("<p><a href='%s' style='background-color: #ff6f00; color: white; padding: 10px 15px; text-decoration: none; border-radius: 5px;'>🛒 Get this deal on Fanatical</a></p>\n", link))

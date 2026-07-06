@@ -68,9 +68,13 @@ func createFeed(bundles []FanaticalBundle, category string) feeds.Feed {
 		Author:      &feeds.Author{Name: "Daniel Winter", Email: "DanielWinterEmsdetten+rss@gmail.com"},
 	}
 
-	// Newest bundles first.
+	// Newest bundles first; tie-break on slug so the output order (and thus
+	// the generated XML) is deterministic across runs.
 	sort.Slice(bundles, func(i, j int) bool {
-		return bundles[i].StartDate.After(bundles[j].StartDate)
+		if !bundles[i].StartDate.Equal(bundles[j].StartDate) {
+			return bundles[i].StartDate.After(bundles[j].StartDate)
+		}
+		return bundles[i].Slug < bundles[j].Slug
 	})
 
 	feed.Items = make([]*feeds.Item, len(bundles))

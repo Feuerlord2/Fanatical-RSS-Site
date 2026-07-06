@@ -2,6 +2,7 @@ package gofanatical
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -38,6 +39,9 @@ type AlgoliaBundle struct {
 	DLCTotal         int                `json:"dlc_total"`
 }
 
+// errPermanent marks failures that will not change on retry (HTTP 4xx).
+var errPermanent = errors.New("permanent fetch error")
+
 // fetchBundles downloads the current bundle list, retrying transient failures.
 func fetchBundles() ([]FanaticalBundle, error) {
 	var lastErr error
@@ -47,6 +51,9 @@ func fetchBundles() ([]FanaticalBundle, error) {
 			return bundles, nil
 		}
 		lastErr = err
+		if errors.Is(err, errPermanent) {
+			return nil, err
+		}
 		slog.Warn("fetch attempt failed", "attempt", attempt, "error", err)
 		if attempt < fetchAttempts {
 			time.Sleep(time.Duration(attempt*2) * time.Second)
@@ -75,7 +82,11 @@ func fetchBundlesOnce() ([]FanaticalBundle, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Algolia API returned status %d", resp.StatusCode)
+		err := fmt.Errorf("Algolia API returned status %d", resp.StatusCode)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+			err = fmt.Errorf("%w: %w", errPermanent, err)
+		}
+		return nil, err
 	}
 
 	var algoliaBundles []AlgoliaBundle

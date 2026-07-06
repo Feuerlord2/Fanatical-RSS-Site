@@ -26,6 +26,9 @@ func TestCategorizeBundle(t *testing.T) {
 		{"app as whole word", AlgoliaBundle{Name: "Productivity App Bundle", Type: "bundle"}, "software"},
 		{"app inside another word stays games", AlgoliaBundle{Name: "Happy Farm Adventures", Type: "bundle"}, "games"},
 		{"apple stays games", AlgoliaBundle{Name: "Golden Apple Quest", Type: "bundle"}, "games"},
+		{"book as whole word", AlgoliaBundle{Name: "Big Book Bundle", Type: "bundle"}, "books"},
+		{"ebook as whole word", AlgoliaBundle{Name: "eBook Mega Collection", Type: "bundle"}, "books"},
+		{"book inside another word stays games", AlgoliaBundle{Name: "Bookworm Adventures", Type: "bundle"}, "games"},
 		{"display type beats title keywords", AlgoliaBundle{Name: "Learning Curve", DisplayType: "book-bundle"}, "books"},
 		{"unknown everything defaults to games", AlgoliaBundle{Name: "Mystery Box"}, "games"},
 	}

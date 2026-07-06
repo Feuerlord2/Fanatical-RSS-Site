@@ -1,6 +1,6 @@
 # Fanatical RSS Site Makefile
 
-.PHONY: help build run clean test deps fmt lint check serve watch
+.PHONY: help build run dev clean test deps fmt lint check serve watch
 
 # Default target
 help: ## Show this help message

@@ -46,6 +46,33 @@ func TestCreateFeedSortsNewestFirst(t *testing.T) {
 	}
 }
 
+func TestCreateFeedDeterministicOutput(t *testing.T) {
+	sameStart := time.Unix(1000, 0)
+	makeBundles := func(order []string) []FanaticalBundle {
+		var bs []FanaticalBundle
+		for _, slug := range order {
+			bs = append(bs, testBundle(slug, sameStart))
+		}
+		return bs
+	}
+
+	// Same bundles, different input order (e.g. Algolia re-ranking) must
+	// produce byte-identical RSS, otherwise CI commits phantom changes.
+	feed1 := createFeed(makeBundles([]string{"zeta", "alpha", "mid"}), "games")
+	rss1, err := feed1.ToRss()
+	if err != nil {
+		t.Fatal(err)
+	}
+	feed2 := createFeed(makeBundles([]string{"mid", "zeta", "alpha"}), "games")
+	rss2, err := feed2.ToRss()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rss1 != rss2 {
+		t.Error("same content in different input order produced different XML")
+	}
+}
+
 func TestCreateFeedStableTimestamp(t *testing.T) {
 	newest := time.Unix(2000, 0)
 	feed := createFeed([]FanaticalBundle{

@@ -189,6 +189,27 @@ func TestFetchBundlesOnceAgainstStubServer(t *testing.T) {
 	}
 }
 
+func TestFetchBundlesNoRetryOnClientError(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	oldURL := bundlesURL
+	bundlesURL = server.URL
+	defer func() { bundlesURL = oldURL }()
+
+	if _, err := fetchBundles(); err == nil {
+		t.Fatal("expected error on HTTP 403, got nil")
+	}
+	// 4xx is deterministic — retrying would just repeat the same failure.
+	if requests != 1 {
+		t.Errorf("expected exactly 1 request on 403, got %d", requests)
+	}
+}
+
 func TestFetchBundlesOnceServerError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)

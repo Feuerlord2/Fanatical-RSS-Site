@@ -6,10 +6,12 @@ import (
 )
 
 var (
-	bookKeywords     = []string{"book", "comic", "certification", "learning", "training", "course"}
+	bookKeywords     = []string{"comic", "certification", "learning", "training", "course"}
 	softwareKeywords = []string{"software", "excel", "beats and vibes", "global beats"}
-	// "app" needs word boundaries so titles like "Happy Farm" don't match.
-	appWordPattern = regexp.MustCompile(`\bapps?\b`)
+	// "book" and "app" need word boundaries so game titles like
+	// "Bookworm Adventures" or "Happy Farm" don't match.
+	bookWordPattern = regexp.MustCompile(`\be?books?\b`)
+	appWordPattern  = regexp.MustCompile(`\bapps?\b`)
 )
 
 // categorizeBundle assigns each bundle to exactly one of "books", "games"
@@ -24,6 +26,9 @@ func categorizeBundle(ab AlgoliaBundle) string {
 	}
 
 	title := strings.ToLower(ab.Name)
+	if bookWordPattern.MatchString(title) {
+		return "books"
+	}
 	for _, keyword := range bookKeywords {
 		if strings.Contains(title, keyword) {
 			return "books"
