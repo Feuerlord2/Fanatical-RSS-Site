@@ -16,26 +16,36 @@ Add these to any RSS reader, Discord bot, or news aggregator. Each item includes
 
 ## How it works
 
-A Go program hits Fanatical's public Algolia API endpoint, converts the response into internal bundle structs, categorizes them (books/games/software based on `display_type` and title matching), deduplicates, and writes RSS 2.0 XML files. GitHub Actions runs this on a schedule and deploys the updated feeds to GitHub Pages.
+A Go program fetches Fanatical's public Algolia API endpoint once (with retries), deduplicates the bundles, assigns each one to exactly one category (books/games/software, based on `display_type` with title-keyword fallbacks), and writes one RSS 2.0 file per category. GitHub Actions runs this on a schedule, commits changed feeds, and deploys `docs/` to GitHub Pages.
+
+Feed timestamps are derived from the newest bundle rather than the current time, so unchanged content produces byte-identical XML and the workflow only commits when there are actual new deals. If the API is unreachable, the program exits non-zero and the workflow run fails visibly instead of silently serving stale feeds.
 
 ## Running locally
 
 ```
-go build -o gofanatical ./cmd/
-./gofanatical
+make run        # build and generate feeds into docs/
+make test       # run the test suite
+make dev        # run with debug logging
+make serve      # preview docs/ at http://localhost:8080
 ```
 
-Requires Go 1.20+. Output goes to `docs/`.
+Requires Go 1.24+. Only external dependency is [gorilla/feeds](https://github.com/gorilla/feeds); logging uses the standard library `log/slog`.
 
 ## Project structure
 
 ```
-cmd/gofanatical.go  Entry point
-pkg/feed.go         API fetching, conversion, categorization, RSS generation
-pkg/model.go        Data types (FanaticalBundle, Price, Item)
-docs/               GitHub Pages output (HTML + RSS files)
-Makefile            Build, run, test, serve, docker targets
+cmd/gofanatical.go   Entry point (exit code 1 on failure)
+pkg/fetch.go         API fetching with retries, conversion to internal types
+pkg/categorize.go    Category assignment (books/games/software)
+pkg/content.go       HTML item content (escaped), currency/MIME helpers
+pkg/feed.go          Run() orchestration, RSS generation, file output
+pkg/model.go         Data types (FanaticalBundle, Price)
+pkg/*_test.go        Unit tests incl. a stub-server fetch test
+docs/                GitHub Pages output (HTML + RSS files)
+Makefile             Build, run, test, serve targets
 ```
+
+Note: the RSS item GUID format (`fanatical-<slug>-<start-unix>`) is a stable contract with subscribers' feed readers — changing it would re-deliver every item as new.
 
 ## Disclaimer
 
