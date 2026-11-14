@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fanatical Bundle RSS Feeds</title>
+  <meta name="description" content="RSS feed collection for Fanatical bundles — books, games, and software deals.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F97316' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 11a9 9 0 0 1 9 9'/%3E%3Cpath d='M4 4a16 16 0 0 1 16 16'/%3E%3Ccircle cx='5' cy='19' r='1'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Preloader -->
+  <div class="preloader" id="preloader">
+    <span class="preloader-text">Fanatical</span>
+    <div class="preloader-bar"></div>
+  </div>
+
+  <!-- Scene background layers -->
+  <div class="scene"></div>
+  <div class="diagonal-lines"></div>
+  <div class="scanline"></div>
+
+  <!-- Corner marks -->
+  <div class="corner-mark corner-mark--tl"></div>
+  <div class="corner-mark corner-mark--tr"></div>
+  <div class="corner-mark corner-mark--bl"></div>
+  <div class="corner-mark corner-mark--br"></div>
+
+  <!-- Pointer-follow glow -->
+  <div class="pointer-glow" id="pointerGlow"></div>
+
+  <!-- Page content -->
+  <div class="page">
+
+    <!-- Header -->
+    <header class="header">
+      <p class="eyebrow">RSS Feed Collection</p>
+      <h1 class="title">
+        Fanatical
+        <span class="accent">Bundle</span>
+      </h1>
+      <p class="subtitle">RSS Feeds</p>
+      <p class="description">
+        Stay on top of every deal. Subscribe to curated RSS feeds covering the latest Fanatical bundles for books, games, and software — updated automatically.
+      </p>
+    </header>
+
+    <!-- Feed cards -->
+    <div class="feeds">
+
+      <!-- Books -->
+      <a href="books.rss" class="feed-card feed-card--books">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+          </svg>
+        </div>
+        <span class="card-tag">Book Bundles</span>
+        <h2 class="card-title">Books & eBooks</h2>
+        <p class="card-desc">Curated collections of eBooks and digital libraries at bundle prices. Technical, fiction, comics, and more.</p>
+        <span class="card-cta">
+          Subscribe to feed
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </span>
+      </a>
+
+      <!-- Games -->
+      <a href="games.rss" class="feed-card feed-card--games">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="6" y1="11" x2="10" y2="11"/>
+            <line x1="8" y1="9" x2="8" y2="13"/>
+            <line x1="15" y1="12" x2="15.01" y2="12"/>
+            <line x1="18" y1="10" x2="18.01" y2="10"/>
+            <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.544-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>
+          </svg>
+        </div>
+        <span class="card-tag">Game Bundles</span>
+        <h2 class="card-title">Games & Gaming</h2>
+        <p class="card-desc">The hottest game bundles with AAA titles and indie gems. Steam keys, DRM-free, and more at unbeatable prices.</p>
+        <span class="card-cta">
+          Subscribe to feed
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </span>
+      </a>
+
+      <!-- Software -->
+      <a href="software.rss" class="feed-card feed-card--software">
+        <div class="card-icon">
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/>
+            <polyline points="8 6 2 12 8 18"/>
+          </svg>
+        </div>
+        <span class="card-tag">Software Bundles</span>
+        <h2 class="card-title">Software & Tools</h2>
+        <p class="card-desc">Professional software bundles for developers, designers, and creators. Productivity tools, creative suites, and utilities.</p>
+        <span class="card-cta">
+          Subscribe to feed
+          <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </span>
+      </a>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p class="footer-text">
+        Not affiliated with Fanatical.
+        <span class="footer-heart">
+          <svg viewBox="0 0 24 24">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </span>
+        For the community.
+      </p>
+    </footer>
+
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      /* --- Preloader --- */
+      window.addEventListener('load', function () {
+        var preloader = document.getElementById('preloader');
+        if (preloader) {
+          setTimeout(function () {
+            preloader.classList.add('hidden');
+          }, 600);
+        }
+
+        /* --- Staggered card reveal --- */
+        requestAnimationFrame(function () {
+          var els = document.querySelectorAll(
+            '.eyebrow, .title, .subtitle, .description, .feed-card, .footer'
+          );
+          for (var i = 0; i < els.length; i++) {
+            els[i].classList.add('revealed');
+          }
+        });
+      });
+
+      /* --- Pointer-follow glow --- */
+      var glow = document.getElementById('pointerGlow');
+      var rafId = null;
+      var mx = 0;
+      var my = 0;
+
+      document.addEventListener('mousemove', function (e) {
+        mx = e.clientX;
+        my = e.clientY;
+
+        if (!glow.classList.contains('active')) {
+          glow.classList.add('active');
+        }
+
+        if (!rafId) {
+          rafId = requestAnimationFrame(function () {
+            glow.style.transform = 'translate(' + (mx - 200) + 'px, ' + (my - 200) + 'px)';
+            rafId = null;
+          });
+        }
+      });
+
+      document.addEventListener('mouseleave', function () {
+        glow.classList.remove('active');
+      });
+
+      /* --- Parallax on background elements --- */
+      var scene = document.querySelector('.scene');
+      var diag = document.querySelector('.diagonal-lines');
+
+      if (scene && diag) {
+        window.addEventListener('mousemove', function (e) {
+          var cx = (e.clientX / window.innerWidth - 0.5) * 2;
+          var cy = (e.clientY / window.innerHeight - 0.5) * 2;
+          scene.style.transform = 'translate(' + (cx * 6) + 'px, ' + (cy * 4) + 'px)';
+          diag.style.transform = 'translate(' + (cx * -3) + 'px, ' + (cy * -2) + 'px)';
+        });
+      }
+    })();
+  </script>
+
+</body>
+</html>
